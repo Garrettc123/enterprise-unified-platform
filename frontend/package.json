@@ -2,6 +2,7 @@
   "name": "enterprise-unified-platform",
   "version": "1.0.0",
   "private": true,
+  "description": "Unprecedented enterprise-grade platform with $104M+ integration systems",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -9,33 +10,24 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "next": "14.2.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "@tanstack/react-query": "^5.28.0",
-    "axios": "^1.6.8",
-    "framer-motion": "^11.0.0",
-    "recharts": "^2.12.0",
-    "lucide-react": "^0.356.0",
-    "tailwindcss": "^3.4.0",
-    "autoprefixer": "^10.4.0",
-    "postcss": "^8.4.0",
-    "class-variance-authority": "^0.7.0",
-    "clsx": "^2.1.0",
-    "tailwind-merge": "^2.2.0",
-    "next-auth": "^4.24.0",
-    "socket.io-client": "^4.7.0",
-    "zod": "^3.22.0",
-    "react-hook-form": "^7.51.0",
-    "@hookform/resolvers": "^3.3.0",
-    "date-fns": "^3.6.0"
+    "next": "^15.1.0",
+    "framer-motion": "^11.15.0",
+    "lucide-react": "^0.468.0",
+    "tailwindcss": "^3.4.17",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "typescript": "^5.7.2",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5"
   },
   "devDependencies": {
-    "typescript": "^5.4.0",
-    "@types/node": "^20.12.0",
-    "@types/react": "^18.3.0",
-    "@types/react-dom": "^18.3.0",
-    "eslint": "^8.57.0",
-    "eslint-config-next": "14.2.0"
+    "eslint": "^9.17.0",
+    "eslint-config-next": "^15.1.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }
