@@ -3,30 +3,54 @@ name: Deploy
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Deploy to production
-      env:
-        DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
-        DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-        DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-      run: |
-        mkdir -p ~/.ssh
-        echo "$DEPLOY_KEY" > ~/.ssh/deploy_key
-        chmod 600 ~/.ssh/deploy_key
-        ssh-keyscan -H $DEPLOY_HOST >> ~/.ssh/known_hosts
-        ssh -i ~/.ssh/deploy_key $DEPLOY_USER@$DEPLOY_HOST 'cd /app && git pull origin main && docker-compose up -d'
-    
-    - name: Run migrations
-      env:
-        DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
-        DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-        DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-      run: |
-        ssh -i ~/.ssh/deploy_key $DEPLOY_USER@$DEPLOY_HOST 'cd /app && docker-compose exec backend alembic upgrade head'
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Check deployment secrets
+        id: check_deploy
+        run: |
+          # Ensure required deployment secrets exist before attempting deployment
+          if [ -z "${{ secrets.DEPLOY_KEY }}" ] || [ -z "${{ secrets.DEPLOY_HOST }}" ] || [ -z "${{ secrets.DEPLOY_USER }}" ]; then
+            echo "deploy_ready=false" >> $GITHUB_OUTPUT
+          else
+            echo "deploy_ready=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup SSH and deploy
+        if: steps.check_deploy.outputs.deploy_ready == 'true'
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          echo "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy_key "$DEPLOY_USER"@"$DEPLOY_HOST" 'cd /app && git pull origin main && docker-compose up -d'
+
+      - name: Run migrations
+        if: steps.check_deploy.outputs.deploy_ready == 'true'
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key "$DEPLOY_USER"@"$DEPLOY_HOST" 'cd /app && docker-compose exec backend alembic upgrade head'
+
+      - name: Verify deployment (optional)
+        if: steps.check_deploy.outputs.deploy_ready == 'true'
+        run: |
+          echo "Skipping remote health check — add a URL to check if desired"
+        continue-on-error: true
