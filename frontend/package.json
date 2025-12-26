@@ -1,33 +1,33 @@
 {
-  "name": "enterprise-unified-platform",
-  "version": "1.0.0",
+  "name": "enterprise-unified-platform-frontend",
   "private": true,
-  "description": "Unprecedented enterprise-grade platform with $104M+ integration systems",
+  "version": "1.0.0",
+  "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage"
   },
   "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "next": "^15.1.0",
-    "framer-motion": "^11.15.0",
-    "lucide-react": "^0.468.0",
-    "tailwindcss": "^3.4.17",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.49",
-    "typescript": "^5.7.2",
-    "@types/node": "^22.10.2",
-    "@types/react": "^18.3.18",
-    "@types/react-dom": "^18.3.5"
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.20.0",
+    "react-hot-toast": "^2.4.1",
+    "axios": "^1.6.0"
   },
   "devDependencies": {
-    "eslint": "^9.17.0",
-    "eslint-config-next": "^15.1.0"
-  },
-  "engines": {
-    "node": ">=20.0.0"
+    "@types/react": "^18.2.37",
+    "@types/react-dom": "^18.2.15",
+    "@vitejs/plugin-react": "^4.2.0",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.0",
+    "vitest": "^1.0.0",
+    "@vitest/ui": "^1.0.0",
+    "eslint": "^8.54.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react": "^7.33.2"
   }
 }
