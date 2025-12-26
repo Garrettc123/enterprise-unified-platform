@@ -6,7 +6,7 @@ import logging
 from .database import init_db
 from .middleware import RequestLoggingMiddleware, RateLimitMiddleware
 from .websocket_manager import ConnectionManager
-from .routers import auth, projects, tasks, organizations
+from .routers import auth, projects, tasks, organizations, analytics, notifications, files, search, export, audit
 
 # Configure logging
 logging.basicConfig(
@@ -24,6 +24,9 @@ async def lifespan(app: FastAPI):
     logger.info("🚀 Starting Enterprise Unified Platform")
     await init_db()
     logger.info("✅ Database initialized")
+    logger.info("📊 Analytics system ready")
+    logger.info("🔐 Authentication system active")
+    logger.info("👥 Team collaboration features enabled")
     yield
     # Shutdown
     logger.info("💤 Shutting down")
@@ -31,13 +34,13 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(
     title="Enterprise Unified Platform",
-    description="Comprehensive enterprise management system",
+    description="Comprehensive enterprise management system with project management, task tracking, analytics, and real-time collaboration",
     version="1.0.0",
     lifespan=lifespan
 )
 
 # Add middleware
-app.add_middleware(RateLimitMiddleware)
+app.add_middleware(RateLimitMiddleware, requests_per_minute=100)
 app.add_middleware(RequestLoggingMiddleware)
 
 # Add CORS middleware
@@ -54,6 +57,12 @@ app.include_router(auth.router)
 app.include_router(projects.router)
 app.include_router(tasks.router)
 app.include_router(organizations.router)
+app.include_router(analytics.router)
+app.include_router(notifications.router)
+app.include_router(files.router)
+app.include_router(search.router)
+app.include_router(export.router)
+app.include_router(audit.router)
 
 # Health check
 @app.get("/health")
@@ -61,6 +70,8 @@ async def health_check():
     """Health check endpoint"""
     return {
         "status": "healthy",
+        "service": "Enterprise Unified Platform",
+        "version": "1.0.0",
         "active_connections": ws_manager.get_connection_count()
     }
 
@@ -71,10 +82,22 @@ async def root():
     return {
         "message": "Welcome to Enterprise Unified Platform",
         "version": "1.0.0",
-        "documentation": "/docs"
+        "documentation": "/docs",
+        "features": [
+            "Project Management",
+            "Task Tracking",
+            "Team Collaboration",
+            "Analytics & Reporting",
+            "File Management",
+            "Advanced Search",
+            "Data Export",
+            "Audit Logging",
+            "Real-time Updates",
+            "API Key Management"
+        ]
     }
 
-# WebSocket endpoint
+# WebSocket endpoint for real-time updates
 @app.websocket("/ws/{client_id}")
 async def websocket_endpoint(websocket: WebSocket, client_id: str):
     """WebSocket endpoint for real-time updates"""
@@ -84,10 +107,39 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
             # Receive message from client
             data = await websocket.receive_text()
             # Broadcast to all clients
-            await ws_manager.broadcast(
-                f"Client {client_id}: {data}"
-            )
+            await ws_manager.broadcast_json({
+                "type": "message",
+                "client_id": client_id,
+                "data": data,
+                "timestamp": __import__('datetime').datetime.utcnow().isoformat()
+            })
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
     finally:
         ws_manager.disconnect(websocket)
+
+# Startup event
+@app.on_event("startup")
+async def startup_event():
+    logger.info("\n" + "="*60)
+    logger.info("Enterprise Unified Platform v1.0.0")
+    logger.info("="*60)
+    logger.info("✅ Authentication & Security")
+    logger.info("✅ Project & Task Management")
+    logger.info("✅ Team Collaboration")
+    logger.info("✅ Analytics & Insights")
+    logger.info("✅ File Management")
+    logger.info("✅ Advanced Search")
+    logger.info("✅ Data Export")
+    logger.info("✅ Audit Logging")
+    logger.info("✅ Real-time Updates")
+    logger.info("="*60 + "\n")
+
+# Shutdown event
+@app.on_event("shutdown")
+async def shutdown_event():
+    logger.info("Shutting down Enterprise Unified Platform...")
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

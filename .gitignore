@@ -1,32 +1,42 @@
-# Dependencies
-node_modules/
-.pnp
-.pnp.js
-
-# Testing
-coverage/
-*.lcov
-.nyc_output
-
-# Next.js
-.next/
-out/
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
 build/
+develop-eggs/
 dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
 
-# Production
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+.npm
+.eslintcache
 
-# Environment
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# Frontend builds
+dist/
+.vite/
+*.local
 
 # IDE
 .vscode/
@@ -36,6 +46,23 @@ lerna-debug.log*
 *~
 .DS_Store
 
-# TypeScript
-*.tsbuildinfo
-next-env.d.ts
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploads
+uploads/
+
+# OS
+.DS_Store
+Thumbs.db
