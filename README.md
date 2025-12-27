@@ -87,13 +87,40 @@ cp .env.example .env
 
 3. **Start with Docker Compose**
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 4. **Access the application**
 - Frontend: http://localhost:5173
 - API: http://localhost:8000
 - API Docs: http://localhost:8000/docs
+
+### Production Deployment
+
+For production deployment, see the comprehensive [DEPLOYMENT.md](DEPLOYMENT.md) guide.
+
+**Quick Deploy (Production)**:
+```bash
+# Copy and configure environment
+cp .env.production .env
+# Edit .env with your production values
+
+# Run deployment script
+./deploy.sh
+```
+
+Or manually with Docker Compose:
+```bash
+docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml exec backend alembic upgrade head
+```
+
+**Important for Production**:
+- Change `DB_PASSWORD` in `.env`
+- Generate new `SECRET_KEY` (e.g., `openssl rand -hex 32`)
+- Use HTTPS with a reverse proxy (Nginx/Caddy)
+- Configure firewall rules
+- Set up automated backups
 
 ### Development
 

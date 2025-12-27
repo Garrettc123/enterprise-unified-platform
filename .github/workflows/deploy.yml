@@ -38,7 +38,7 @@ jobs:
           echo "$DEPLOY_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
-          ssh -i ~/.ssh/deploy_key "$DEPLOY_USER"@"$DEPLOY_HOST" 'cd /app && git pull origin main && docker-compose up -d'
+          ssh -i ~/.ssh/deploy_key "$DEPLOY_USER"@"$DEPLOY_HOST" 'cd /app && git pull origin main && docker compose -f docker-compose.prod.yml up -d --build'
 
       - name: Run migrations
         if: steps.check_deploy.outputs.deploy_ready == 'true'
@@ -47,7 +47,7 @@ jobs:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/deploy_key "$DEPLOY_USER"@"$DEPLOY_HOST" 'cd /app && docker-compose exec backend alembic upgrade head'
+          ssh -i ~/.ssh/deploy_key "$DEPLOY_USER"@"$DEPLOY_HOST" 'cd /app && docker compose -f docker-compose.prod.yml exec -T backend alembic upgrade head'
 
       - name: Verify deployment (optional)
         if: steps.check_deploy.outputs.deploy_ready == 'true'

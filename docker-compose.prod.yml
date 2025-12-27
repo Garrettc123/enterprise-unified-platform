@@ -3,26 +3,23 @@ services:
     image: postgres:15-alpine
     container_name: enterprise-db
     environment:
-      POSTGRES_USER: enterprise
-      POSTGRES_PASSWORD: secure_password_123
-      POSTGRES_DB: enterprise_platform
+      POSTGRES_USER: ${DB_USER:-enterprise}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-enterprise_platform}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
     networks:
       - enterprise-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U enterprise"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-enterprise}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
     container_name: enterprise-redis
-    ports:
-      - "6379:6379"
     networks:
       - enterprise-network
     healthcheck:
@@ -30,6 +27,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   backend:
     build:
@@ -37,10 +35,15 @@ services:
       dockerfile: Dockerfile.backend
     container_name: enterprise-backend
     environment:
-      DATABASE_URL: postgresql+asyncpg://enterprise:secure_password_123@db:5432/enterprise_platform
+      DATABASE_URL: postgresql+asyncpg://${DB_USER:-enterprise}:${DB_PASSWORD}@db:5432/${DB_NAME:-enterprise_platform}
       REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: your-secret-key-change-in-production
+      SECRET_KEY: ${SECRET_KEY}
+      ALGORITHM: ${ALGORITHM:-HS256}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
       DEBUG: "False"
+      APP_NAME: ${APP_NAME:-Enterprise Unified Platform}
+      APP_VERSION: ${APP_VERSION:-1.0.0}
+    # Note: Remove port mappings if using a reverse proxy to prevent direct access
     ports:
       - "8000:8000"
     depends_on:
@@ -50,24 +53,23 @@ services:
         condition: service_healthy
     networks:
       - enterprise-network
-    volumes:
-      - ./backend:/app/backend
+    restart: unless-stopped
 
   frontend:
     build:
       context: .
       dockerfile: Dockerfile.frontend
     container_name: enterprise-frontend
+    # Note: Remove port mappings if using a reverse proxy to prevent direct access
     ports:
       - "5173:5173"
     environment:
-      VITE_API_URL: http://localhost:8000/api
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api}
     depends_on:
       - backend
     networks:
       - enterprise-network
-    volumes:
-      - ./frontend:/app/frontend
+    restart: unless-stopped
 
 volumes:
   postgres_data:
