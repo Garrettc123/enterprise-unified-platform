@@ -91,7 +91,7 @@ enterprise-unified-platform/
 │   │   └── main.tsx         # Entry point
 │   ├── public/              # Static assets
 │   └── vite.config.ts       # Vite configuration
-├── docker compose.yml       # Docker orchestration
+├── docker-compose.yml       # Docker orchestration
 ├── requirements.txt         # Python dependencies
 ├── .env.example             # Environment template
 ├── README.md                # Project overview
@@ -280,7 +280,7 @@ npm run build
 
 ### Docker Deployment
 ```bash
-docker compose -f docker compose.yml up -d
+docker compose -f docker-compose.yml up -d
 ```
 
 ### Environment Setup

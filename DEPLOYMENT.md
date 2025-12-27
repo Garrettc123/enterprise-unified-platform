@@ -38,7 +38,7 @@ cp .env.production .env
 #### 3. Build and Start Services
 
 ```bash
-docker-compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml up -d
 ```
 
 This will:
@@ -50,7 +50,7 @@ This will:
 #### 4. Run Database Migrations
 
 ```bash
-docker-compose -f docker-compose.prod.yml exec backend alembic upgrade head
+docker compose -f docker-compose.prod.yml exec backend alembic upgrade head
 ```
 
 #### 5. Verify Deployment
@@ -58,7 +58,7 @@ docker-compose -f docker-compose.prod.yml exec backend alembic upgrade head
 Check that all services are running:
 
 ```bash
-docker-compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml ps
 ```
 
 Test the health endpoints:
@@ -146,23 +146,23 @@ The repository includes a GitHub Actions workflow for automated deployment.
 1. **Logs**
    ```bash
    # View all logs
-   docker-compose -f docker-compose.prod.yml logs -f
+   docker compose -f docker-compose.prod.yml logs -f
    
    # View specific service logs
-   docker-compose -f docker-compose.prod.yml logs -f backend
+   docker compose -f docker-compose.prod.yml logs -f backend
    ```
 
 2. **Health Checks**
    - Backend health: `curl http://localhost:8000/health`
-   - Monitor container health: `docker-compose -f docker-compose.prod.yml ps`
+   - Monitor container health: `docker compose -f docker-compose.prod.yml ps`
 
 3. **Database Backups**
    ```bash
    # Backup
-   docker-compose -f docker-compose.prod.yml exec db pg_dump -U enterprise enterprise_platform > backup.sql
+   docker compose -f docker-compose.prod.yml exec db pg_dump -U enterprise enterprise_platform > backup.sql
    
    # Restore
-   docker-compose -f docker-compose.prod.yml exec -T db psql -U enterprise enterprise_platform < backup.sql
+   docker compose -f docker-compose.prod.yml exec -T db psql -U enterprise enterprise_platform < backup.sql
    ```
 
 ### Scaling
@@ -240,14 +240,14 @@ For larger deployments, consider:
 
 Check logs:
 ```bash
-docker-compose -f docker-compose.prod.yml logs
+docker compose -f docker-compose.prod.yml logs
 ```
 
 ### Database Connection Errors
 
 1. Verify database is healthy:
    ```bash
-   docker-compose -f docker-compose.prod.yml ps db
+   docker compose -f docker-compose.prod.yml ps db
    ```
 
 2. Check DATABASE_URL in .env matches your configuration
@@ -273,10 +273,10 @@ sudo lsof -i :5173
 git pull origin main
 
 # Rebuild and restart services
-docker-compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml up -d --build
 
 # Run any new migrations
-docker-compose -f docker-compose.prod.yml exec backend alembic upgrade head
+docker compose -f docker-compose.prod.yml exec backend alembic upgrade head
 ```
 
 ## Rollback
@@ -285,16 +285,16 @@ If you need to rollback to a previous version:
 
 ```bash
 # Stop services
-docker-compose -f docker-compose.prod.yml down
+docker compose -f docker-compose.prod.yml down
 
 # Checkout previous version
 git checkout <previous-commit-hash>
 
 # Rebuild and restart
-docker-compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml up -d --build
 
 # Rollback database if needed
-docker-compose -f docker-compose.prod.yml exec backend alembic downgrade -1
+docker compose -f docker-compose.prod.yml exec backend alembic downgrade -1
 ```
 
 ## Support
