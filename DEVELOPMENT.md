@@ -21,7 +21,7 @@ cp .env.example .env
 
 2. **Start all services**
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 3. **Access the platform**
@@ -41,7 +41,7 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 # Start PostgreSQL and Redis (using Docker)
-docker-compose up postgres redis -d
+docker compose up postgres redis -d
 
 # Run migrations
 alembic upgrade head
@@ -191,7 +191,7 @@ alembic downgrade -1
 psql -U enterprise -d enterprise_platform -h localhost
 
 # Using Docker
-docker-compose exec db psql -U enterprise -d enterprise_platform
+docker compose exec db psql -U enterprise -d enterprise_platform
 ```
 
 ## Environment Variables
@@ -280,7 +280,7 @@ npm run build
 
 ### Docker Deployment
 ```bash
-docker-compose -f docker-compose.yml up -d
+docker compose -f docker-compose.yml up -d
 ```
 
 ### Environment Setup
@@ -302,11 +302,11 @@ docker-compose -f docker-compose.yml up -d
 
 ```bash
 # Start all services
-docker-compose up -d
+docker compose up -d
 
 # View logs
-docker-compose logs -f backend
-docker-compose logs -f frontend
+docker compose logs -f backend
+docker compose logs -f frontend
 
 # Run migrations
 alembic upgrade head
@@ -318,7 +318,7 @@ pg_dump > backup.sql
 psql < backup.sql
 
 # Clean up Docker
-docker-compose down -v
+docker compose down -v
 ```
 
 ## Troubleshooting

@@ -17,7 +17,7 @@ install:
 	cd frontend && npm install
 
 dev:
-	docker-compose up -d
+	docker compose up -d
 	@echo "Starting backend..."
 	uvicorn backend.main:app --reload &
 	@echo "Starting frontend..."
@@ -39,14 +39,14 @@ clean:
 	rm -rf backend/*.pyc
 	rm -rf frontend/dist
 	rm -rf frontend/node_modules
-	docker-compose down -v
+	docker compose down -v
 
 docker-up:
-	docker-compose up -d
-	docker-compose logs -f
+	docker compose up -d
+	docker compose logs -f
 
 docker-down:
-	docker-compose down
+	docker compose down
 
 migrate:
 	alembic upgrade head
