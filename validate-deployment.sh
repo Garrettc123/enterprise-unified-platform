@@ -129,7 +129,7 @@ echo "8. Checking Python requirements..."
 if [ -f "requirements.txt" ]; then
     pass "requirements.txt exists"
     echo "   Key dependencies:"
-    grep -E "^(fastapi|uvicorn|sqlalchemy|alembic|pydantic)" requirements.txt | sed 's/^/   - /'
+    grep -E "^(fastapi|uvicorn|sqlalchemy|alembic|pydantic|python-jose|passlib)" requirements.txt | sed 's/^/   - /'
 else
     fail "requirements.txt not found"
     exit 1

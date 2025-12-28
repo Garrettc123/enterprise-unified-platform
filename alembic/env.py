@@ -19,6 +19,12 @@ config = context.config
 
 # Override sqlalchemy.url with environment variable if set
 if DATABASE_URL:
+    # Validate DATABASE_URL format
+    if not DATABASE_URL.startswith(('postgresql', 'sqlite', 'mysql')):
+        raise ValueError(
+            f"Invalid DATABASE_URL format: {DATABASE_URL}. "
+            "Expected format: postgresql://user:pass@host:port/db or sqlite:///path/to/db"
+        )
     config.set_main_option('sqlalchemy.url', DATABASE_URL)
 
 # Interpret the config file for Python logging.
