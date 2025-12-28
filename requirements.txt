@@ -16,3 +16,4 @@ aioredis==2.0.1
 celery==5.3.4
 requests==2.31.0
 python-dotenv==1.0.0
+httpx==0.25.0

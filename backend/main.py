@@ -1,5 +1,5 @@
 from fastapi import FastAPI, WebSocket, Depends
-from fastapi.cors import CORSMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
 
@@ -53,16 +53,16 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(auth.router)
-app.include_router(projects.router)
-app.include_router(tasks.router)
-app.include_router(organizations.router)
-app.include_router(analytics.router)
-app.include_router(notifications.router)
-app.include_router(files.router)
-app.include_router(search.router)
-app.include_router(export.router)
-app.include_router(audit.router)
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
+app.include_router(tasks.router, prefix="/api/tasks", tags=["tasks"])
+app.include_router(organizations.router, prefix="/api/organizations", tags=["organizations"])
+app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
+app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"])
+app.include_router(files.router, prefix="/api/files", tags=["files"])
+app.include_router(search.router, prefix="/api/search", tags=["search"])
+app.include_router(export.router, prefix="/api/export", tags=["export"])
+app.include_router(audit.router, prefix="/api/audit", tags=["audit"])
 
 # Health check
 @app.get("/health")
