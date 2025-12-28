@@ -1,15 +1,57 @@
 version: '3.8'
+
 services:
-  postgres:
-    image: postgres:15
-    ports: ["5432:5432"]
+  orchestration:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: autonomous-sync-orchestration
     environment:
-      POSTGRES_DB: db
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: rocket69!
-  mongodb:
-    image: mongo:5.0
-    ports: ["27017:27017"]
-  redis:
-    image: redis:7
-    ports: ["6379:6379"]
+      - AWS_CREDENTIALS=${AWS_CREDENTIALS}
+      - GCP_CREDENTIALS=${GCP_CREDENTIALS}
+      - AZURE_CREDENTIALS=${AZURE_CREDENTIALS}
+      - RENDER_API_KEY=${RENDER_API_KEY}
+      - VERCEL_TOKEN=${VERCEL_TOKEN}
+      - POSTGRES_PROD=${POSTGRES_PROD}
+      - POSTGRES_BACKUP=${POSTGRES_BACKUP}
+      - MONGO_ANALYTICS=${MONGO_ANALYTICS}
+      - DYNAMODB_CACHE=${DYNAMODB_CACHE}
+      - ELASTICSEARCH_SEARCH=${ELASTICSEARCH_SEARCH}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
+    ports:
+      - "8000:8000"
+      - "9000:9000"
+    volumes:
+      - ./logs:/app/logs
+      - ./config:/app/config
+    restart: unless-stopped
+    networks:
+      - sync-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  webhook-listener:
+    image: webhook-listener:latest
+    container_name: github-webhook-listener
+    ports:
+      - "9000:9000"
+    environment:
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
+    depends_on:
+      - orchestration
+    networks:
+      - sync-network
+    restart: unless-stopped
+
+networks:
+  sync-network:
+    driver: bridge
+
+volumes:
+  logs:
+  config:
