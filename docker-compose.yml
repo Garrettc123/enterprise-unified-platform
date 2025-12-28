@@ -1,77 +1,15 @@
+version: '3.8'
 services:
-  db:
-    image: postgres:15-alpine
-    container_name: enterprise-db
+  postgres:
+    image: postgres:15
+    ports: ["5432:5432"]
     environment:
-      POSTGRES_USER: enterprise
-      POSTGRES_PASSWORD: secure_password_123
-      POSTGRES_DB: enterprise_platform
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    networks:
-      - enterprise-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U enterprise"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
+      POSTGRES_DB: db
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: rocket69!
+  mongodb:
+    image: mongo:5.0
+    ports: ["27017:27017"]
   redis:
-    image: redis:7-alpine
-    container_name: enterprise-redis
-    ports:
-      - "6379:6379"
-    networks:
-      - enterprise-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  backend:
-    build:
-      context: .
-      dockerfile: Dockerfile.backend
-    container_name: enterprise-backend
-    environment:
-      DATABASE_URL: postgresql+asyncpg://enterprise:secure_password_123@db:5432/enterprise_platform
-      REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: your-secret-key-change-in-production
-      DEBUG: "False"
-    ports:
-      - "8000:8000"
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - enterprise-network
-    volumes:
-      - ./backend:/app/backend
-
-  frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile.frontend
-    container_name: enterprise-frontend
-    ports:
-      - "5173:5173"
-    environment:
-      VITE_API_URL: http://localhost:8000/api
-    depends_on:
-      - backend
-    networks:
-      - enterprise-network
-    volumes:
-      - ./frontend:/app/frontend
-
-volumes:
-  postgres_data:
-
-networks:
-  enterprise-network:
-    driver: bridge
+    image: redis:7
+    ports: ["6379:6379"]
