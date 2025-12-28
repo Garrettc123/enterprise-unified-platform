@@ -2,6 +2,20 @@
 
 This guide explains how to deploy the Enterprise Unified Platform to production.
 
+## Quick Validation
+
+Before deploying, validate your deployment setup:
+
+```bash
+./validate-deployment.sh
+```
+
+This will check:
+- Docker and Docker Compose installation
+- Configuration file syntax
+- Required files and directory structure
+- Alembic migration setup
+
 ## Prerequisites
 
 - Docker and Docker Compose installed on the target server

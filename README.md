@@ -99,6 +99,12 @@ docker compose up -d
 
 For production deployment, see the comprehensive [DEPLOYMENT.md](DEPLOYMENT.md) guide.
 
+**Validate Deployment Setup**:
+```bash
+# Validate deployment configuration
+./validate-deployment.sh
+```
+
 **Quick Deploy (Production)**:
 ```bash
 # Copy and configure environment
