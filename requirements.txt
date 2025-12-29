@@ -10,8 +10,8 @@ pydantic-settings>=2.0.0
 boto3>=1.28.0
 google-cloud-storage>=2.10.0
 google-cloud-compute>=1.13.0
-az-storage>=0.19.0
-az-identity>=1.13.0
+azure-storage-blob>=12.19.0
+azure-identity>=1.13.0
 
 # Databases
 psycopg2-binary>=2.9.0
@@ -28,7 +28,7 @@ boto3>=1.28.0  # SQS
 
 # Search Engines
 elasticsearch>=8.10.0
-algolia>=2.6.0
+algoliasearch>=3.0.0
 meilisearch>=0.28.0
 
 # ML Platforms
@@ -43,7 +43,6 @@ requests>=2.31.0
 
 # Monitoring & Observability
 prometheus-client>=0.18.0
-logging>=0.5.1.2
 structlog>=23.1.0
 watchtower>=3.0.1  # CloudWatch logging
 
