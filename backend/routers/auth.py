@@ -17,7 +17,7 @@ from ..security import (
     decode_token
 )
 
-router = APIRouter()
+router = APIRouter(prefix="/api/auth", tags=["auth"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
