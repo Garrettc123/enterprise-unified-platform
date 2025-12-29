@@ -8,6 +8,7 @@ from backend.models import Base
 
 # Use async SQLite for testing
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+TEST_BASE_URL = "http://test"
 
 @pytest.fixture(scope="function")
 async def test_db():
@@ -44,7 +45,7 @@ async def test_db():
 @pytest.fixture
 async def client(test_db):
     """Create async test client"""
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url=TEST_BASE_URL) as ac:
         yield ac
 
 @pytest.mark.asyncio
