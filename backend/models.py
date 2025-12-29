@@ -86,7 +86,7 @@ class Project(Base):
     start_date = Column(DateTime)
     end_date = Column(DateTime)
     budget = Column(Float)
-    metadata = Column(JSON, default={})
+    meta_data = Column(JSON, default={})
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -116,7 +116,7 @@ class Task(Base):
     due_date = Column(DateTime)
     start_date = Column(DateTime)
     completed_at = Column(DateTime)
-    metadata = Column(JSON, default={})
+    meta_data = Column(JSON, default={})
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
