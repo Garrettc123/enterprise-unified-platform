@@ -122,7 +122,7 @@ npm run test:coverage
 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 
 # Production
-uvicorn app:app --host 0.0.0.0 --port 8000 --workers 4
+uvicorn backend.main:app --host 0.0.0.0 --port 8000 --workers 4
 ```
 
 ### Frontend
@@ -191,7 +191,7 @@ Base URL: `http://localhost:8000/api`
 4. **SQL injection** - Use ORM parameterized queries (never string concatenation)
 5. **XSS protection** - React escapes by default, validate API inputs with Pydantic
 6. **CORS** - Configure allowed origins in `backend/config.py`
-7. **Rate limiting** - Implemented in middleware (100 req/min per IP)
+7. **Rate limiting** - Implemented in middleware (100 req/min per IP, configurable in `backend/middleware.py`)
 8. **Input validation** - Use Pydantic schemas for all API inputs
 9. **Authentication** - Check JWT token on protected routes
 10. **Audit logging** - Log all sensitive operations to `audit_logs` table
@@ -278,28 +278,28 @@ cd frontend && npm test
 ## Key Dependencies
 
 **Backend:**
-- fastapi>=0.109.0 - Web framework
-- sqlalchemy>=2.0.25 - ORM
-- pydantic>=2.6.0 - Data validation
-- asyncpg>=0.29.0 - PostgreSQL async driver
-- redis>=5.0.1 - Caching
-- python-jose - JWT tokens
-- passlib[bcrypt] - Password hashing
+- fastapi>=0.109.0,<0.110.0 - Web framework
+- sqlalchemy>=2.0.25,<3.0.0 - ORM
+- pydantic>=2.6.0,<3.0.0 - Data validation
+- asyncpg>=0.29.0,<0.30.0 - PostgreSQL async driver
+- redis>=5.0.1,<6.0.0 - Caching
+- python-jose>=3.3.0,<4.0.0 - JWT tokens
+- passlib[bcrypt]>=1.7.4,<2.0.0 - Password hashing
 
 **Frontend:**
-- react@18.2.0 - UI framework
-- react-router-dom@6.20.0 - Routing
-- axios@1.6.0 - HTTP client
-- typescript@5.2.2 - Type safety
+- react@^18.2.0 - UI framework
+- react-router-dom@^6.20.0 - Routing
+- axios@^1.6.0 - HTTP client
+- typescript@^5.2.2 - Type safety
 
 **Sync Systems:**
-- boto3 - AWS services
-- google-cloud-* - GCP services
-- pymongo - MongoDB
-- redis - Redis cache
-- kafka-python - Kafka messaging
-- elasticsearch - Search engine
-- mlflow - ML platform
+- boto3>=1.34.0,<2.0.0 - AWS services
+- google-cloud-storage>=2.14.0,<3.0.0 - GCP services
+- pymongo>=4.5.0 - MongoDB
+- redis>=5.0.1,<6.0.0 - Redis cache
+- kafka-python>=2.0.2 - Kafka messaging
+- elasticsearch>=8.10.0 - Search engine
+- mlflow>=2.10.0 - ML platform
 
 ## Monitoring & Observability
 
