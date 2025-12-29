@@ -295,11 +295,11 @@ cd frontend && npm test
 **Sync Systems:**
 - boto3>=1.34.0,<2.0.0 - AWS services
 - google-cloud-storage>=2.14.0,<3.0.0 - GCP services
-- pymongo>=4.5.0 - MongoDB
+- pymongo>=4.5.0,<5.0.0 - MongoDB
 - redis>=5.0.1,<6.0.0 - Redis cache
-- kafka-python>=2.0.2 - Kafka messaging
-- elasticsearch>=8.10.0 - Search engine
-- mlflow>=2.10.0 - ML platform
+- kafka-python>=2.0.2,<3.0.0 - Kafka messaging
+- elasticsearch>=8.10.0,<9.0.0 - Search engine
+- mlflow>=2.10.0,<3.0.0 - ML platform
 
 ## Monitoring & Observability
 
