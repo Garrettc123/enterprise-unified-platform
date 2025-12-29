@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.pool import NullPool
 
-from backend.secrets import get_database_url_from_secrets
+from backend.secret_managers import get_database_url_from_secrets
 
 # Create declarative base for models
 Base = declarative_base()
