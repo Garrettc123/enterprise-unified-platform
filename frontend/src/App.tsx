@@ -1,11 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import Navbar from './components/Navbar'
-from './pages/Login'
-from './pages/Dashboard'
-from './pages/Projects'
-from './pages/ProjectDetail'
-from './pages/Tasks'
+import Login from './pages/Login'
+import Dashboard from './pages/Dashboard'
 import ProtectedRoute from './components/ProtectedRoute'
 import './App.css'
 
@@ -24,9 +21,6 @@ function App() {
                 <div className="app-container">
                   <Routes>
                     <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/projects" element={<Projects />} />
-                    <Route path="/projects/:id" element={<ProjectDetail />} />
-                    <Route path="/tasks" element={<Tasks />} />
                     <Route path="/" element={<Navigate to="/dashboard" />} />
                   </Routes>
                 </div>
