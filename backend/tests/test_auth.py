@@ -1,53 +1,56 @@
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+import asyncio
+from httpx import AsyncClient, ASGITransport
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from backend.main import app
 from backend.database import get_db
 from backend.models import Base
-from backend.security import get_password_hash
 
-# Use synchronous SQLite for testing
-TEST_DATABASE_URL = "sqlite:///./test.db"
+# Use async SQLite for testing
+TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 @pytest.fixture(scope="function")
-def test_db():
+async def test_db():
     """Create test database"""
-    # Create engine
-    engine = create_engine(
+    # Create async engine
+    engine = create_async_engine(
         TEST_DATABASE_URL,
         connect_args={"check_same_thread": False},
     )
     
     # Create tables
-    Base.metadata.create_all(bind=engine)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
     
     # Create session factory
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    TestingSessionLocal = async_sessionmaker(
+        engine, class_=AsyncSession, expire_on_commit=False
+    )
     
-    def override_get_db():
-        db = TestingSessionLocal()
-        try:
-            yield db
-        finally:
-            db.close()
+    async def override_get_db():
+        async with TestingSessionLocal() as session:
+            yield session
     
     app.dependency_overrides[get_db] = override_get_db
     
     yield
     
     # Drop tables and clean up
-    Base.metadata.drop_all(bind=engine)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    await engine.dispose()
     app.dependency_overrides.clear()
 
 @pytest.fixture
-def client(test_db):
-    """Create test client"""
-    return TestClient(app)
+async def client(test_db):
+    """Create async test client"""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        yield ac
 
-def test_register_user(client):
+@pytest.mark.asyncio
+async def test_register_user(client):
     """Test user registration"""
-    response = client.post(
+    response = await client.post(
         "/api/auth/register",
         json={
             "username": "testuser",
@@ -60,10 +63,11 @@ def test_register_user(client):
     assert response.json()["username"] == "testuser"
     assert response.json()["email"] == "test@example.com"
 
-def test_login_user(client):
+@pytest.mark.asyncio
+async def test_login_user(client):
     """Test user login"""
     # First register a user
-    client.post(
+    await client.post(
         "/api/auth/register",
         json={
             "username": "testuser",
@@ -74,7 +78,7 @@ def test_login_user(client):
     )
     
     # Then try to login
-    response = client.post(
+    response = await client.post(
         "/api/auth/login",
         data={"username": "testuser", "password": "testpass123"}
     )
@@ -82,8 +86,9 @@ def test_login_user(client):
     assert "access_token" in response.json()
     assert "refresh_token" in response.json()
 
-def test_health_check(client):
+@pytest.mark.asyncio
+async def test_health_check(client):
     """Test health check endpoint"""
-    response = client.get("/health")
+    response = await client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "healthy"
