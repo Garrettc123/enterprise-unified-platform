@@ -4,9 +4,13 @@
 
 This is a production-grade enterprise platform with three main components:
 
-1. **Backend**: FastAPI (Python 3.11+) REST API with SQLAlchemy ORM, JWT authentication, and WebSocket support
+1. **Backend** (Enterprise Platform API): FastAPI (Python 3.11+) REST API in `backend/` with SQLAlchemy ORM, JWT authentication, and WebSocket support for project/task management
 2. **Frontend**: React 18 + TypeScript with Vite build system
-3. **Sync Systems**: Autonomous infrastructure synchronization across 25+ endpoints (Cloud, Database, Storage, Cache, Messages, Search, ML, GraphQL, Webhooks)
+3. **Sync Systems** (Orchestration API): Autonomous infrastructure synchronization across 25+ endpoints in root-level Python modules, with a separate FastAPI application in `app.py`
+
+**Note**: There are two FastAPI applications:
+- `backend/main.py` - Main enterprise platform API (port 8000 by default)
+- `app.py` - Sync orchestration API (port 8000, run via `main.py`)
 
 ## Architecture
 
@@ -29,7 +33,12 @@ This is a production-grade enterprise platform with three main components:
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
+
+# Start the enterprise platform API (main backend)
 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+
+# OR start the sync orchestration API
+python main.py  # Uses app.py
 ```
 
 ### Frontend Setup
@@ -117,12 +126,20 @@ npm run test:coverage
 ## Building & Running
 
 ### Backend
+
+**Enterprise Platform API** (Project/Task Management):
 ```bash
 # Development
 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 
 # Production
 uvicorn backend.main:app --host 0.0.0.0 --port 8000 --workers 4
+```
+
+**Sync Orchestration API** (Infrastructure Sync):
+```bash
+# Development & Production
+python main.py  # Starts app.py with uvicorn on port 8000
 ```
 
 ### Frontend
@@ -278,13 +295,13 @@ cd frontend && npm test
 ## Key Dependencies
 
 **Backend:**
-- fastapi>=0.109.0,<0.110.0 - Web framework
-- sqlalchemy>=2.0.25,<3.0.0 - ORM
-- pydantic>=2.6.0,<3.0.0 - Data validation
-- asyncpg>=0.29.0,<0.30.0 - PostgreSQL async driver
-- redis>=5.0.1,<6.0.0 - Caching
-- python-jose>=3.3.0,<4.0.0 - JWT tokens
-- passlib[bcrypt]>=1.7.4,<2.0.0 - Password hashing
+- fastapi>=0.104.0 - Web framework
+- sqlalchemy>=2.0.0 - ORM  
+- pydantic>=2.0.0 - Data validation
+- asyncpg - PostgreSQL async driver (in pyproject.toml dev dependencies)
+- redis>=5.0.0 - Caching
+- python-jose - JWT tokens (in pyproject.toml)
+- passlib[bcrypt] - Password hashing (in pyproject.toml)
 
 **Frontend:**
 - react@^18.2.0 - UI framework
@@ -293,13 +310,13 @@ cd frontend && npm test
 - typescript@^5.2.2 - Type safety
 
 **Sync Systems:**
-- boto3>=1.34.0,<2.0.0 - AWS services
-- google-cloud-storage>=2.14.0,<3.0.0 - GCP services
-- pymongo>=4.5.0,<5.0.0 - MongoDB
-- redis>=5.0.1,<6.0.0 - Redis cache
-- kafka-python>=2.0.2,<3.0.0 - Kafka messaging
-- elasticsearch>=8.10.0,<9.0.0 - Search engine
-- mlflow>=2.10.0,<3.0.0 - ML platform
+- boto3>=1.28.0 - AWS services
+- google-cloud-storage>=2.10.0 - GCP services
+- pymongo>=4.5.0 - MongoDB
+- redis>=5.0.0 - Redis cache
+- kafka-python>=2.0.2 - Kafka messaging
+- elasticsearch>=8.10.0 - Search engine
+- mlflow>=2.10.0 - ML platform
 
 ## Monitoring & Observability
 
