@@ -28,6 +28,11 @@ This is a production-grade enterprise platform with three main components:
 - Docker & Docker Compose
 - PostgreSQL and Redis (via Docker or local)
 
+**Note on Dependencies**: 
+- `requirements.txt` - Primary dependencies for sync systems and basic FastAPI setup
+- `pyproject.toml` - Additional backend-specific packages (asyncpg, JWT, testing tools)
+- Install requirements.txt first, then pyproject.toml extras if working on backend features
+
 ### Backend Setup
 ```bash
 python -m venv venv
@@ -298,10 +303,9 @@ cd frontend && npm test
 - fastapi>=0.104.0 - Web framework
 - sqlalchemy>=2.0.0 - ORM  
 - pydantic>=2.0.0 - Data validation
-- asyncpg - PostgreSQL async driver (in pyproject.toml dev dependencies)
+- psycopg2-binary - PostgreSQL driver (backend uses asyncpg via pyproject.toml)
 - redis>=5.0.0 - Caching
-- python-jose - JWT tokens (in pyproject.toml)
-- passlib[bcrypt] - Password hashing (in pyproject.toml)
+- JWT and password hashing libraries (see pyproject.toml for backend-specific packages)
 
 **Frontend:**
 - react@^18.2.0 - UI framework
