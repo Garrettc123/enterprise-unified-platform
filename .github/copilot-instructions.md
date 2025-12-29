@@ -9,8 +9,9 @@ This is a production-grade enterprise platform with three main components:
 3. **Sync Systems** (Orchestration API): Autonomous infrastructure synchronization across 25+ endpoints in root-level Python modules, with a separate FastAPI application in `app.py`
 
 **Note**: There are two FastAPI applications:
-- `backend/main.py` - Main enterprise platform API (port 8000 by default)
-- `app.py` - Sync orchestration API (port 8000, run via `main.py`)
+- `backend/main.py` - Main enterprise platform API (default port 8000)
+- `app.py` - Sync orchestration API (default port 8000, run via `main.py`)
+- **They use the same port and cannot run simultaneously** - choose based on your needs
 
 ## Architecture
 
@@ -303,9 +304,9 @@ cd frontend && npm test
 - fastapi>=0.104.0 - Web framework
 - sqlalchemy>=2.0.0 - ORM  
 - pydantic>=2.0.0 - Data validation
-- psycopg2-binary>=2.9.0 - PostgreSQL driver (sync systems use this; backend API uses asyncpg)
+- psycopg2-binary>=2.9.0 - PostgreSQL driver (sync systems); backend API uses asyncpg>=0.29.0
 - redis>=5.0.0 - Caching
-- python-jose and passlib - JWT authentication and password hashing (see pyproject.toml for backend versions)
+- python-jose[cryptography]>=3.3.0, passlib[bcrypt,argon2]>=1.7.4 - JWT auth & password hashing (from pyproject.toml)
 
 **Frontend:**
 - react@^18.2.0 - UI framework
