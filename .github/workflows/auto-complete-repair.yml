@@ -23,8 +23,8 @@ jobs:
           cd frontend && npm install 2>/dev/null || echo "No npm dependencies to install"
           pip install -r requirements.txt 2>/dev/null || true
       - run: |
-          npx prettier --write . 2>/dev/null || true
-          npx eslint --fix . 2>/dev/null || true
+          cd frontend && npx prettier --write . 2>/dev/null || true
+          cd frontend && npx eslint --fix . 2>/dev/null || true
           black . 2>/dev/null || true
       - run: |
           cd frontend && npm test 2>/dev/null || true
