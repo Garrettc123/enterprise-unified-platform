@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -168,7 +168,7 @@ class TestTokenCreation:
 
     def test_decode_token_wrong_secret(self):
         token = jwt.encode(
-            {"sub": "testuser", "exp": datetime.utcnow() + timedelta(hours=1)},
+            {"sub": "testuser", "exp": datetime.now(timezone.utc) + timedelta(hours=1)},
             "wrong-secret",
             algorithm=ALGORITHM,
         )
@@ -327,7 +327,7 @@ class TestGetCurrentUser:
 
     def test_get_me_token_missing_sub(self, client):
         token = jwt.encode(
-            {"exp": datetime.utcnow() + timedelta(hours=1)},
+            {"exp": datetime.now(timezone.utc) + timedelta(hours=1)},
             SECRET_KEY,
             algorithm=ALGORITHM,
         )
@@ -382,7 +382,7 @@ class TestAPIKeys:
     def test_create_api_key_with_expiry(self, client):
         _register_user(client)
         headers = _get_auth_header(client)
-        expires = (datetime.utcnow() + timedelta(days=30)).isoformat()
+        expires = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
         response = client.post(
             "/api-keys",
             json={"name": "expiring-key", "expires_at": expires},
