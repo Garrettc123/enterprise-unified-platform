@@ -8,6 +8,7 @@ from ..database import get_db
 from ..models import Project, Organization, User, Task
 from ..schemas import ProjectCreate, ProjectResponse, TaskCreate, TaskResponse
 from ..routers.auth import oauth2_scheme, get_current_user
+from ..rbac import OrganizationRole, ProjectRole, require_org_role, require_project_role
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -17,10 +18,10 @@ async def create_project(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Create new project in organization"""
+    """Create new project in organization (requires member role in org)"""
     current_user = await get_current_user(token, db)
     
-    # Verify organization exists and user has access
+    # Verify organization exists
     org_result = await db.execute(
         select(Organization).where(Organization.id == project_data.organization_id)
     )
@@ -30,6 +31,9 @@ async def create_project(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Organization not found"
         )
+    
+    # Require at least member role in the organization
+    await require_org_role(current_user, project_data.organization_id, db, OrganizationRole.MEMBER)
     
     # Create project
     new_project = Project(
@@ -100,7 +104,7 @@ async def update_project(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Update project"""
+    """Update project (requires admin role in project or org)"""
     current_user = await get_current_user(token, db)
     
     result = await db.execute(
@@ -113,6 +117,9 @@ async def update_project(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Project not found"
         )
+    
+    # Require admin role in the project's organization
+    await require_org_role(current_user, project.organization_id, db, OrganizationRole.ADMIN)
     
     # Update fields
     project.name = project_data.name or project.name
@@ -133,7 +140,7 @@ async def delete_project(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Delete project (soft delete via archiving)"""
+    """Delete project (requires admin role in org)"""
     current_user = await get_current_user(token, db)
     
     result = await db.execute(
@@ -146,6 +153,9 @@ async def delete_project(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Project not found"
         )
+    
+    # Require admin role in the project's organization
+    await require_org_role(current_user, project.organization_id, db, OrganizationRole.ADMIN)
     
     # Archive instead of delete
     project.status = 'archived'

@@ -8,6 +8,7 @@ from ..database import get_db
 from ..models import Task, Project, Comment, User
 from ..schemas import TaskCreate, TaskResponse, CommentCreate, CommentResponse
 from ..routers.auth import oauth2_scheme, get_current_user
+from ..rbac import ProjectRole, require_project_role
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
@@ -17,7 +18,7 @@ async def create_task(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Create new task in project"""
+    """Create new task in project (requires contributor role)"""
     current_user = await get_current_user(token, db)
     
     # Verify project exists
@@ -30,6 +31,9 @@ async def create_task(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Project not found"
         )
+    
+    # Require at least contributor role in the project
+    await require_project_role(current_user, task_data.project_id, db, ProjectRole.CONTRIBUTOR)
     
     # Create task
     new_task = Task(
@@ -109,7 +113,7 @@ async def update_task(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Update task"""
+    """Update task (requires contributor role in project)"""
     current_user = await get_current_user(token, db)
     
     result = await db.execute(
@@ -122,6 +126,9 @@ async def update_task(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Task not found"
         )
+    
+    # Require contributor role to update tasks
+    await require_project_role(current_user, task.project_id, db, ProjectRole.CONTRIBUTOR)
     
     # Update fields
     if task_data.title:
@@ -151,7 +158,7 @@ async def delete_task(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Delete task"""
+    """Delete task (requires admin role in project)"""
     current_user = await get_current_user(token, db)
     
     result = await db.execute(
@@ -164,6 +171,9 @@ async def delete_task(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Task not found"
         )
+    
+    # Require admin role to delete tasks
+    await require_project_role(current_user, task.project_id, db, ProjectRole.ADMIN)
     
     await db.delete(task)
     await db.commit()

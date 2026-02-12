@@ -121,3 +121,10 @@ class APIKeyResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+class RoleAssignment(BaseModel):
+    role: str = Field(..., min_length=1, max_length=20, description="Role to assign")
+
+class RoleResponse(BaseModel):
+    user_id: int
+    role: str
