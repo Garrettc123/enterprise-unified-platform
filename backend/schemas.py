@@ -70,10 +70,12 @@ class TaskBase(BaseModel):
 class TaskCreate(TaskBase):
     project_id: int
     assigned_to: Optional[int] = None
+    iteration_id: Optional[int] = None
 
 class TaskResponse(TaskBase):
     id: int
     project_id: int
+    iteration_id: Optional[int] = None
     assigned_to: Optional[int] = None
     created_by: int
     due_date: Optional[datetime] = None
@@ -118,6 +120,34 @@ class APIKeyResponse(BaseModel):
     last_used_at: Optional[datetime] = None
     is_active: bool
     created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class IterationBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    description: Optional[str] = None
+    start_date: datetime
+    end_date: datetime
+    status: str = 'planning'
+    goal: Optional[str] = None
+
+class IterationCreate(IterationBase):
+    project_id: int
+
+class IterationUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    description: Optional[str] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    status: Optional[str] = None
+    goal: Optional[str] = None
+
+class IterationResponse(IterationBase):
+    id: int
+    project_id: int
+    created_at: datetime
+    updated_at: datetime
     
     class Config:
         from_attributes = True

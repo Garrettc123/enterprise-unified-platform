@@ -72,8 +72,8 @@ class Organization(Base):
 class Project(Base):
     __tablename__ = 'project'
     __table_args__ = (
-        Index('idx_organization_id', 'organization_id'),
-        Index('idx_status', 'status'),
+        Index('idx_project_organization_id', 'organization_id'),
+        Index('idx_project_status', 'status'),
     )
     
     id = Column(Integer, primary_key=True)
@@ -86,7 +86,7 @@ class Project(Base):
     start_date = Column(DateTime)
     end_date = Column(DateTime)
     budget = Column(Float)
-    metadata = Column(JSON, default={})
+    extra_data = Column('metadata', JSON, default={})
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -95,19 +95,21 @@ class Project(Base):
     team_members = relationship('User', secondary=project_team, back_populates='projects')
     tasks = relationship('Task', back_populates='project', cascade='all, delete-orphan')
     milestones = relationship('Milestone', back_populates='project', cascade='all, delete-orphan')
+    iterations = relationship('Iteration', back_populates='project', cascade='all, delete-orphan')
 
 class Task(Base):
     __tablename__ = 'task'
     __table_args__ = (
-        Index('idx_project_id', 'project_id'),
-        Index('idx_assigned_to', 'assigned_to'),
-        Index('idx_status', 'status'),
+        Index('idx_task_project_id', 'project_id'),
+        Index('idx_task_assigned_to', 'assigned_to'),
+        Index('idx_task_status', 'status'),
     )
     
     id = Column(Integer, primary_key=True)
     title = Column(String(255), nullable=False)
     description = Column(Text)
     project_id = Column(Integer, ForeignKey('project.id', ondelete='CASCADE'), nullable=False)
+    iteration_id = Column(Integer, ForeignKey('iteration.id', ondelete='SET NULL'), nullable=True)
     assigned_to = Column(Integer, ForeignKey('user.id'))
     created_by = Column(Integer, ForeignKey('user.id'), nullable=False)
     status = Column(String(20), default='todo')  # todo, in_progress, in_review, completed, blocked
@@ -116,20 +118,21 @@ class Task(Base):
     due_date = Column(DateTime)
     start_date = Column(DateTime)
     completed_at = Column(DateTime)
-    metadata = Column(JSON, default={})
+    extra_data = Column('metadata', JSON, default={})
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
     project = relationship('Project', back_populates='tasks')
+    iteration = relationship('Iteration', back_populates='tasks')
     comments = relationship('Comment', back_populates='task', cascade='all, delete-orphan')
     attachments = relationship('Attachment', back_populates='task', cascade='all, delete-orphan')
 
 class Comment(Base):
     __tablename__ = 'comment'
     __table_args__ = (
-        Index('idx_task_id', 'task_id'),
-        Index('idx_created_by', 'created_by'),
+        Index('idx_comment_task_id', 'task_id'),
+        Index('idx_comment_created_by', 'created_by'),
     )
     
     id = Column(Integer, primary_key=True)
@@ -142,10 +145,32 @@ class Comment(Base):
     # Relationships
     task = relationship('Task', back_populates='comments')
 
+class Iteration(Base):
+    __tablename__ = 'iteration'
+    __table_args__ = (
+        Index('idx_iteration_project_id', 'project_id'),
+        Index('idx_iteration_status', 'status'),
+    )
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    project_id = Column(Integer, ForeignKey('project.id', ondelete='CASCADE'), nullable=False)
+    start_date = Column(DateTime, nullable=False)
+    end_date = Column(DateTime, nullable=False)
+    status = Column(String(20), default='planning')  # planning, active, completed, cancelled
+    goal = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    project = relationship('Project', back_populates='iterations')
+    tasks = relationship('Task', back_populates='iteration')
+
 class Milestone(Base):
     __tablename__ = 'milestone'
     __table_args__ = (
-        Index('idx_project_id', 'project_id'),
+        Index('idx_milestone_project_id', 'project_id'),
     )
     
     id = Column(Integer, primary_key=True)
@@ -161,7 +186,7 @@ class Milestone(Base):
 class Attachment(Base):
     __tablename__ = 'attachment'
     __table_args__ = (
-        Index('idx_task_id', 'task_id'),
+        Index('idx_attachment_task_id', 'task_id'),
     )
     
     id = Column(Integer, primary_key=True)
@@ -179,7 +204,7 @@ class Attachment(Base):
 class Team(Base):
     __tablename__ = 'team'
     __table_args__ = (
-        Index('idx_organization_id', 'organization_id'),
+        Index('idx_team_organization_id', 'organization_id'),
     )
     
     id = Column(Integer, primary_key=True)
@@ -194,8 +219,8 @@ class Team(Base):
 class APIKey(Base):
     __tablename__ = 'api_key'
     __table_args__ = (
-        Index('idx_user_id', 'user_id'),
-        Index('idx_key', 'key'),
+        Index('idx_apikey_user_id', 'user_id'),
+        Index('idx_apikey_key', 'key'),
     )
     
     id = Column(Integer, primary_key=True)
@@ -213,8 +238,8 @@ class APIKey(Base):
 class AuditLog(Base):
     __tablename__ = 'audit_log'
     __table_args__ = (
-        Index('idx_user_id', 'user_id'),
-        Index('idx_created_at', 'created_at'),
+        Index('idx_auditlog_user_id', 'user_id'),
+        Index('idx_auditlog_created_at', 'created_at'),
     )
     
     id = Column(Integer, primary_key=True)
@@ -233,8 +258,8 @@ class AuditLog(Base):
 class Notification(Base):
     __tablename__ = 'notification'
     __table_args__ = (
-        Index('idx_user_id', 'user_id'),
-        Index('idx_read', 'is_read'),
+        Index('idx_notification_user_id', 'user_id'),
+        Index('idx_notification_read', 'is_read'),
     )
     
     id = Column(Integer, primary_key=True)
