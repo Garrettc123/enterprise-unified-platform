@@ -21,6 +21,8 @@ interface UseWebSocketOptions {
   reconnectDelay?: number
   /** Maximum reconnection attempts (default 10) */
   maxReconnectAttempts?: number
+  /** Maximum number of messages to keep in history (default 500) */
+  maxMessages?: number
   /** Callback invoked for every incoming message */
   onMessage?: (message: WebSocketMessage) => void
 }
@@ -31,6 +33,7 @@ export function useWebSocket(clientId: string, options: UseWebSocketOptions = {}
     reconnect = true,
     reconnectDelay = 3000,
     maxReconnectAttempts = 10,
+    maxMessages = 500,
     onMessage,
   } = options
 
@@ -64,13 +67,19 @@ export function useWebSocket(clientId: string, options: UseWebSocketOptions = {}
     ws.onmessage = (event) => {
       try {
         const msg: WebSocketMessage = JSON.parse(event.data)
-        setMessages((prev) => [...prev, msg])
+        setMessages((prev) => {
+          const next = [...prev, msg]
+          return next.length > maxMessages ? next.slice(-maxMessages) : next
+        })
         setLastMessage(msg)
         onMessage?.(msg)
       } catch {
         // Non-JSON payload — wrap it
         const msg: WebSocketMessage = { type: 'raw', data: event.data }
-        setMessages((prev) => [...prev, msg])
+        setMessages((prev) => {
+          const next = [...prev, msg]
+          return next.length > maxMessages ? next.slice(-maxMessages) : next
+        })
         setLastMessage(msg)
         onMessage?.(msg)
       }
