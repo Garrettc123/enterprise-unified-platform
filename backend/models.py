@@ -48,6 +48,7 @@ class User(Base):
     api_keys = relationship('APIKey', back_populates='user', cascade='all, delete-orphan')
     audit_logs = relationship('AuditLog', back_populates='user')
     notifications = relationship('Notification', back_populates='user', cascade='all, delete-orphan')
+    payments = relationship('Payment', back_populates='user', cascade='all, delete-orphan')
 
 class Organization(Base):
     __tablename__ = 'organization'
@@ -72,8 +73,8 @@ class Organization(Base):
 class Project(Base):
     __tablename__ = 'project'
     __table_args__ = (
-        Index('idx_organization_id', 'organization_id'),
-        Index('idx_status', 'status'),
+        Index('idx_project_organization_id', 'organization_id'),
+        Index('idx_project_status', 'status'),
     )
     
     id = Column(Integer, primary_key=True)
@@ -86,7 +87,7 @@ class Project(Base):
     start_date = Column(DateTime)
     end_date = Column(DateTime)
     budget = Column(Float)
-    metadata = Column(JSON, default={})
+    extra_metadata = Column('metadata', JSON, default={})
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -99,9 +100,9 @@ class Project(Base):
 class Task(Base):
     __tablename__ = 'task'
     __table_args__ = (
-        Index('idx_project_id', 'project_id'),
-        Index('idx_assigned_to', 'assigned_to'),
-        Index('idx_status', 'status'),
+        Index('idx_task_project_id', 'project_id'),
+        Index('idx_task_assigned_to', 'assigned_to'),
+        Index('idx_task_status', 'status'),
     )
     
     id = Column(Integer, primary_key=True)
@@ -116,7 +117,7 @@ class Task(Base):
     due_date = Column(DateTime)
     start_date = Column(DateTime)
     completed_at = Column(DateTime)
-    metadata = Column(JSON, default={})
+    extra_metadata = Column('metadata', JSON, default={})
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -128,8 +129,8 @@ class Task(Base):
 class Comment(Base):
     __tablename__ = 'comment'
     __table_args__ = (
-        Index('idx_task_id', 'task_id'),
-        Index('idx_created_by', 'created_by'),
+        Index('idx_comment_task_id', 'task_id'),
+        Index('idx_comment_created_by', 'created_by'),
     )
     
     id = Column(Integer, primary_key=True)
@@ -145,7 +146,7 @@ class Comment(Base):
 class Milestone(Base):
     __tablename__ = 'milestone'
     __table_args__ = (
-        Index('idx_project_id', 'project_id'),
+        Index('idx_milestone_project_id', 'project_id'),
     )
     
     id = Column(Integer, primary_key=True)
@@ -161,7 +162,7 @@ class Milestone(Base):
 class Attachment(Base):
     __tablename__ = 'attachment'
     __table_args__ = (
-        Index('idx_task_id', 'task_id'),
+        Index('idx_attachment_task_id', 'task_id'),
     )
     
     id = Column(Integer, primary_key=True)
@@ -179,7 +180,7 @@ class Attachment(Base):
 class Team(Base):
     __tablename__ = 'team'
     __table_args__ = (
-        Index('idx_organization_id', 'organization_id'),
+        Index('idx_team_organization_id', 'organization_id'),
     )
     
     id = Column(Integer, primary_key=True)
@@ -194,8 +195,8 @@ class Team(Base):
 class APIKey(Base):
     __tablename__ = 'api_key'
     __table_args__ = (
-        Index('idx_user_id', 'user_id'),
-        Index('idx_key', 'key'),
+        Index('idx_apikey_user_id', 'user_id'),
+        Index('idx_apikey_key', 'key'),
     )
     
     id = Column(Integer, primary_key=True)
@@ -213,8 +214,8 @@ class APIKey(Base):
 class AuditLog(Base):
     __tablename__ = 'audit_log'
     __table_args__ = (
-        Index('idx_user_id', 'user_id'),
-        Index('idx_created_at', 'created_at'),
+        Index('idx_audit_user_id', 'user_id'),
+        Index('idx_audit_created_at', 'created_at'),
     )
     
     id = Column(Integer, primary_key=True)
@@ -233,8 +234,8 @@ class AuditLog(Base):
 class Notification(Base):
     __tablename__ = 'notification'
     __table_args__ = (
-        Index('idx_user_id', 'user_id'),
-        Index('idx_read', 'is_read'),
+        Index('idx_notification_user_id', 'user_id'),
+        Index('idx_notification_read', 'is_read'),
     )
     
     id = Column(Integer, primary_key=True)
@@ -250,3 +251,27 @@ class Notification(Base):
     
     # Relationships
     user = relationship('User', back_populates='notifications')
+
+class Payment(Base):
+    __tablename__ = 'payment'
+    __table_args__ = (
+        Index('idx_payment_user_id', 'user_id'),
+        Index('idx_payment_stripe_payment_intent_id', 'stripe_payment_intent_id'),
+        Index('idx_payment_status', 'status'),
+    )
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    stripe_payment_intent_id = Column(String(255), unique=True, nullable=False)
+    amount = Column(Integer, nullable=False)  # Amount in cents
+    currency = Column(String(10), nullable=False, default='usd')
+    status = Column(String(50), nullable=False, default='pending')
+    description = Column(Text)
+    receipt_email = Column(String(255))
+    stripe_customer_id = Column(String(255))
+    payment_method_type = Column(String(50))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    user = relationship('User', back_populates='payments')

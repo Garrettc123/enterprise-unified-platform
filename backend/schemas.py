@@ -121,3 +121,26 @@ class APIKeyResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+class PaymentIntentCreate(BaseModel):
+    amount: int = Field(..., gt=0, description="Amount in cents")
+    currency: str = Field(default="usd", max_length=10)
+    description: Optional[str] = None
+    receipt_email: Optional[str] = None
+
+class PaymentResponse(BaseModel):
+    id: int
+    user_id: int
+    stripe_payment_intent_id: str
+    amount: int
+    currency: str
+    status: str
+    description: Optional[str] = None
+    receipt_email: Optional[str] = None
+    stripe_customer_id: Optional[str] = None
+    payment_method_type: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

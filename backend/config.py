@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     MAX_CONNECTIONS_PER_IP: int = 100
     RATE_LIMIT_PER_MINUTE: int = 1000
     
+    # Stripe
+    STRIPE_SECRET_KEY: str = os.getenv("STRIPE_SECRET_KEY", "")
+    STRIPE_WEBHOOK_SECRET: str = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+
     # Monitoring
     SENTRY_DSN: str = os.getenv("SENTRY_DSN", "")
     LOG_LEVEL: str = "INFO"
