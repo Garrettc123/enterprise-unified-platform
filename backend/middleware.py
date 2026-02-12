@@ -6,26 +6,57 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timedelta
 
+from .logging_config import set_correlation_id, get_correlation_id
+from .monitoring import app_metrics
+
 logger = logging.getLogger(__name__)
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    """Middleware for logging all API requests"""
+    """Middleware for logging all API requests with correlation ID tracking and metrics."""
     
     async def dispatch(self, request: Request, call_next):
+        # Set correlation ID from header or generate new one
+        incoming_id = request.headers.get("X-Correlation-ID")
+        correlation_id = set_correlation_id(incoming_id)
+
+        # Track active requests
+        app_metrics.increment_active()
+
         # Log request
         start_time = time.time()
         logger.info(f"👉 {request.method} {request.url.path}")
         
-        # Process request
-        response = await call_next(request)
+        try:
+            # Process request
+            response = await call_next(request)
+        except Exception:
+            app_metrics.decrement_active()
+            raise
         
-        # Log response time
+        # Calculate duration
         process_time = time.time() - start_time
-        logger.info(f"👈 {request.method} {request.url.path} - {response.status_code} - {process_time:.3f}s")
+        duration_ms = process_time * 1000
+
+        # Decrement active requests
+        app_metrics.decrement_active()
+
+        # Record metrics
+        app_metrics.record_request(
+            method=request.method,
+            path=request.url.path,
+            status_code=response.status_code,
+            duration_ms=duration_ms,
+        )
+
+        # Log response
+        logger.info(
+            f"👈 {request.method} {request.url.path} - {response.status_code} - {process_time:.3f}s"
+        )
         
         # Add custom headers
         response.headers["X-Process-Time"] = str(process_time)
         response.headers["X-API-Version"] = "1.0.0"
+        response.headers["X-Correlation-ID"] = correlation_id
         
         return response
 

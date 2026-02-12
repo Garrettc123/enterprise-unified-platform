@@ -1,18 +1,18 @@
 from fastapi import FastAPI, WebSocket, Depends
-from fastapi.cors import CORSMiddleware
+from starlette.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
 
 from .database import init_db
+from .logging_config import setup_logging
 from .middleware import RequestLoggingMiddleware, RateLimitMiddleware
+from .monitoring import app_metrics
 from .websocket_manager import ConnectionManager
 from .routers import auth, projects, tasks, organizations, analytics, notifications, files, search, export, audit
+from .routers import monitoring as monitoring_router
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+setup_logging(log_level="INFO")
 logger = logging.getLogger(__name__)
 
 # WebSocket manager
@@ -63,16 +63,21 @@ app.include_router(files.router)
 app.include_router(search.router)
 app.include_router(export.router)
 app.include_router(audit.router)
+app.include_router(monitoring_router.router)
 
 # Health check
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
+    """Health check endpoint with monitoring data"""
+    health = app_metrics.get_health()
     return {
         "status": "healthy",
         "service": "Enterprise Unified Platform",
         "version": "1.0.0",
-        "active_connections": ws_manager.get_connection_count()
+        "active_connections": ws_manager.get_connection_count(),
+        "uptime_seconds": health["uptime_seconds"],
+        "total_requests": health["total_requests"],
+        "error_rate_percent": health["error_rate_percent"],
     }
 
 # Root endpoint
