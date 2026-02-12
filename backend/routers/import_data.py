@@ -78,7 +78,7 @@ async def import_projects_csv(
     imported = 0
     errors: List[str] = []
 
-    for row_num, row in enumerate(reader, start=2):
+    for row_num, row in enumerate(reader, start=2):  # start=2 because row 1 is the header
         try:
             name = row.get("Name", "").strip()
             if not name:
@@ -157,7 +157,7 @@ async def import_tasks_csv(
     imported = 0
     errors: List[str] = []
 
-    for row_num, row in enumerate(reader, start=2):
+    for row_num, row in enumerate(reader, start=2):  # start=2 because row 1 is the header
         try:
             title = row.get("Title", "").strip()
             if not title:
