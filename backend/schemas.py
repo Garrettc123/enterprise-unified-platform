@@ -121,3 +121,28 @@ class APIKeyResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+class SearchResultItem(BaseModel):
+    type: str
+    id: int
+    title: str
+    description: Optional[str] = None
+    score: Optional[float] = None
+    url: str
+    highlights: Optional[dict] = None
+
+class SearchResponse(BaseModel):
+    results: List[SearchResultItem]
+    total: int
+    query: str
+    source: str = "database"
+
+class SearchSuggestion(BaseModel):
+    type: str
+    id: int
+    title: str
+
+class ReindexResponse(BaseModel):
+    entity_type: str
+    indexed: int
+    errors: int

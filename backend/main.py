@@ -1,11 +1,13 @@
 from fastapi import FastAPI, WebSocket, Depends
-from fastapi.cors import CORSMiddleware
+from starlette.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
 
 from .database import init_db
 from .middleware import RequestLoggingMiddleware, RateLimitMiddleware
 from .websocket_manager import ConnectionManager
+from .elasticsearch_service import ElasticsearchService, es_service
+from .config import settings
 from .routers import auth, projects, tasks, organizations, analytics, notifications, files, search, export, audit
 
 # Configure logging
@@ -24,11 +26,28 @@ async def lifespan(app: FastAPI):
     logger.info("🚀 Starting Enterprise Unified Platform")
     await init_db()
     logger.info("✅ Database initialized")
+
+    # Initialize Elasticsearch
+    import backend.elasticsearch_service as es_module
+    es = ElasticsearchService(
+        elasticsearch_url=settings.ELASTICSEARCH_URL,
+        index_prefix=settings.ELASTICSEARCH_INDEX_PREFIX,
+    )
+    connected = await es.connect()
+    es_module.es_service = es
+    if connected:
+        await es.create_indices()
+        logger.info("🔍 Elasticsearch connected and indices ready")
+    else:
+        logger.info("🔍 Elasticsearch unavailable — using database search fallback")
+
     logger.info("📊 Analytics system ready")
     logger.info("🔐 Authentication system active")
     logger.info("👥 Team collaboration features enabled")
     yield
     # Shutdown
+    if es_module.es_service:
+        await es_module.es_service.close()
     logger.info("💤 Shutting down")
 
 # Create FastAPI app
