@@ -203,6 +203,12 @@ async def get_admin_overview(
     """Get admin dashboard overview with system-wide analytics"""
     current_user = await get_current_user(token, db)
 
+    if not current_user.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin privileges required"
+        )
+
     # Total users
     users_result = await db.execute(select(func.count(User.id)))
     total_users = users_result.scalar() or 0

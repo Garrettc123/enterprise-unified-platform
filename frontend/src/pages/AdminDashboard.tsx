@@ -61,7 +61,11 @@ function AdminDashboard() {
   useEffect(() => {
     const fetchAdminData = async () => {
       const token = localStorage.getItem('access_token')
-      if (!token) return
+      if (!token) {
+        setError('Authentication required')
+        setIsLoading(false)
+        return
+      }
 
       try {
         const data = await analyticsApi.getAdminOverview(token)
@@ -251,7 +255,7 @@ function AdminDashboard() {
           {metrics.recent_activity.length > 0 ? (
             <div className="activity-list">
               {metrics.recent_activity.map((activity, index) => (
-                <div key={index} className="activity-item">
+                <div key={`${activity.action}-${activity.entity_type}-${activity.entity_id}-${activity.created_at || index}`} className="activity-item">
                   <div className="activity-details">
                     <span className="activity-user">{activity.username || 'System'}</span>
                     <span className="activity-action">{activity.action}</span>

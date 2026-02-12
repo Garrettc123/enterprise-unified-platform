@@ -1,5 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from backend.main import app
 from backend.database import get_db
@@ -32,7 +33,7 @@ def setup_test_db():
 
     app.dependency_overrides[get_db] = override_get_db
 
-    yield
+    yield session_factory
 
     async def _teardown():
         async with engine.begin() as conn:
@@ -67,9 +68,27 @@ def _register_and_login(client):
     return resp.json()["access_token"]
 
 
-def test_admin_overview_returns_metrics(client):
+def _make_superuser(session_factory):
+    """Helper to promote a user to superuser"""
+    import asyncio
+    from backend.models import User
+
+    async def _promote():
+        async with session_factory() as session:
+            result = await session.execute(
+                select(User).where(User.username == "adminuser")
+            )
+            user = result.scalar_one()
+            user.is_superuser = True
+            await session.commit()
+
+    asyncio.run(_promote())
+
+
+def test_admin_overview_returns_metrics(client, setup_test_db):
     """Test admin overview endpoint returns expected metric fields"""
     token = _register_and_login(client)
+    _make_superuser(setup_test_db)
 
     response = client.get(
         "/api/analytics/admin/overview",
@@ -103,9 +122,10 @@ def test_admin_overview_returns_metrics(client):
     assert isinstance(data["recent_activity"], list)
 
 
-def test_admin_overview_has_registered_user(client):
+def test_admin_overview_has_registered_user(client, setup_test_db):
     """Test admin overview counts the registered user"""
     token = _register_and_login(client)
+    _make_superuser(setup_test_db)
 
     response = client.get(
         "/api/analytics/admin/overview",
@@ -124,3 +144,15 @@ def test_admin_overview_requires_auth(client):
     """Test admin overview requires authentication"""
     response = client.get("/api/analytics/admin/overview")
     assert response.status_code in (401, 403, 422)
+
+
+def test_admin_overview_requires_superuser(client, setup_test_db):
+    """Test admin overview requires superuser privileges"""
+    token = _register_and_login(client)
+    # Don't promote to superuser
+
+    response = client.get(
+        "/api/analytics/admin/overview",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 403
