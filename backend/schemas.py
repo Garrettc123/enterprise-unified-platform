@@ -121,3 +121,8 @@ class APIKeyResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+class ImportResult(BaseModel):
+    imported_count: int
+    errors: List[str] = []
+    total_rows: int
