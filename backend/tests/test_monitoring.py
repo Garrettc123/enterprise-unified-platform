@@ -265,12 +265,13 @@ class TestMonitoringEndpoints:
         assert response.headers["X-Correlation-ID"] == "my-trace-id"
 
     def test_metrics_record_requests(self, client):
-        # Make several requests
+        # Make several requests that will be recorded
         client.get("/health")
         client.get("/")
         client.get("/api/monitoring/metrics")
 
         response = client.get("/api/monitoring/metrics")
         data = response.json()
-        # At least the requests above should be counted
+        # The current request is still in-flight when metrics are read,
+        # so we see at least the 3 previously completed requests.
         assert data["total_requests"] >= 3
