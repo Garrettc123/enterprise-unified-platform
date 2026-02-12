@@ -66,3 +66,4 @@ uploads/
 # OS
 .DS_Store
 Thumbs.db
+frontend/package-lock.json

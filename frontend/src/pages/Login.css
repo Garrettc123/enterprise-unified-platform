@@ -4,6 +4,7 @@
   justify-content: center;
   min-height: 100vh;
   background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  padding: 1rem;
 }
 
 .login-box {
