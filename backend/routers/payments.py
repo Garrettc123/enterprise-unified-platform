@@ -160,8 +160,8 @@ async def stripe_webhook(
         payment = result.scalar_one_or_none()
         if payment:
             payment.status = intent.get("status", payment.status)
-            payment.payment_method_type = (
-                intent.get("payment_method_types", [None])[0]
+            payment.payment_method_type = next(
+                iter(intent.get("payment_method_types", [])), None
             )
             payment.stripe_customer_id = intent.get("customer")
             await db.commit()
