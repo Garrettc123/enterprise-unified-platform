@@ -1,7 +1,9 @@
 from fastapi import FastAPI, WebSocket, Depends
-from fastapi.cors import CORSMiddleware
+from starlette.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 import logging
+import json
 
 from .database import init_db
 from .middleware import RequestLoggingMiddleware, RateLimitMiddleware
@@ -97,26 +99,111 @@ async def root():
         ]
     }
 
-# WebSocket endpoint for real-time updates
+# WebSocket endpoint for real-time messaging
 @app.websocket("/ws/{client_id}")
 async def websocket_endpoint(websocket: WebSocket, client_id: str):
-    """WebSocket endpoint for real-time updates"""
-    await ws_manager.connect(websocket)
+    """WebSocket endpoint for real-time messaging
+
+    Supported message types (send as JSON):
+      - {"type": "message", "data": "..."} — broadcast to all clients
+      - {"type": "direct", "target_client_id": "...", "data": "..."} — send to one client
+      - {"type": "join_room", "room_id": "..."} — join a chat room
+      - {"type": "leave_room", "room_id": "..."} — leave a chat room
+      - {"type": "room_message", "room_id": "...", "data": "..."} — message to room members
+      - {"type": "ping"} — server replies with pong
+    """
+    await ws_manager.connect(websocket, client_id)
+    # Notify others about the new connection
+    await ws_manager.broadcast_json({
+        "type": "system",
+        "event": "client_connected",
+        "client_id": client_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
     try:
         while True:
-            # Receive message from client
-            data = await websocket.receive_text()
-            # Broadcast to all clients
-            await ws_manager.broadcast_json({
-                "type": "message",
-                "client_id": client_id,
-                "data": data,
-                "timestamp": __import__('datetime').datetime.utcnow().isoformat()
-            })
+            raw = await websocket.receive_text()
+            try:
+                data = json.loads(raw)
+            except json.JSONDecodeError:
+                # Treat plain text as a broadcast message
+                data = {"type": "message", "data": raw}
+
+            msg_type = data.get("type", "message")
+            timestamp = datetime.now(timezone.utc).isoformat()
+
+            if msg_type == "message":
+                await ws_manager.broadcast_json({
+                    "type": "message",
+                    "client_id": client_id,
+                    "data": data.get("data", ""),
+                    "timestamp": timestamp,
+                })
+
+            elif msg_type == "direct":
+                target = data.get("target_client_id")
+                if target:
+                    payload = {
+                        "type": "direct",
+                        "client_id": client_id,
+                        "data": data.get("data", ""),
+                        "timestamp": timestamp,
+                    }
+                    await ws_manager.send_to_client(target, payload)
+                    # Echo back to sender
+                    await ws_manager.send_to_client(client_id, payload)
+
+            elif msg_type == "join_room":
+                room_id = data.get("room_id")
+                if room_id:
+                    ws_manager.join_room(room_id, client_id)
+                    await ws_manager.broadcast_to_room(room_id, {
+                        "type": "system",
+                        "event": "room_joined",
+                        "room_id": room_id,
+                        "client_id": client_id,
+                        "timestamp": timestamp,
+                    })
+
+            elif msg_type == "leave_room":
+                room_id = data.get("room_id")
+                if room_id:
+                    ws_manager.leave_room(room_id, client_id)
+                    await ws_manager.broadcast_to_room(room_id, {
+                        "type": "system",
+                        "event": "room_left",
+                        "room_id": room_id,
+                        "client_id": client_id,
+                        "timestamp": timestamp,
+                    })
+
+            elif msg_type == "room_message":
+                room_id = data.get("room_id")
+                if room_id:
+                    await ws_manager.broadcast_to_room(room_id, {
+                        "type": "room_message",
+                        "room_id": room_id,
+                        "client_id": client_id,
+                        "data": data.get("data", ""),
+                        "timestamp": timestamp,
+                    })
+
+            elif msg_type == "ping":
+                await ws_manager.send_to_client(client_id, {
+                    "type": "pong",
+                    "timestamp": timestamp,
+                })
+
     except Exception as e:
-        logger.error(f"WebSocket error: {e}")
+        logger.error(f"WebSocket error for {client_id}: {e}")
     finally:
-        ws_manager.disconnect(websocket)
+        ws_manager.disconnect(websocket, client_id)
+        await ws_manager.broadcast_json({
+            "type": "system",
+            "event": "client_disconnected",
+            "client_id": client_id,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
 
 # Startup event
 @app.on_event("startup")
