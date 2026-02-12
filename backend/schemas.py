@@ -121,3 +121,31 @@ class APIKeyResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+class EmailNotificationPreferenceBase(BaseModel):
+    email_enabled: bool = True
+    task_assigned: bool = True
+    task_updated: bool = True
+    comment_added: bool = True
+    project_invitation: bool = True
+
+class EmailNotificationPreferenceUpdate(EmailNotificationPreferenceBase):
+    pass
+
+class EmailNotificationPreferenceResponse(EmailNotificationPreferenceBase):
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class EmailSendRequest(BaseModel):
+    to_email: EmailStr
+    notification_type: str = Field(..., min_length=1)
+    context: dict = Field(default_factory=dict)
+
+class EmailSendResponse(BaseModel):
+    success: bool
+    message: str

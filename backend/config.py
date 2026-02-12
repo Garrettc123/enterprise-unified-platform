@@ -41,6 +41,16 @@ class Settings(BaseSettings):
     SENTRY_DSN: str = os.getenv("SENTRY_DSN", "")
     LOG_LEVEL: str = "INFO"
     
+    # Email / SMTP
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "localhost")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
+    SMTP_USERNAME: str = os.getenv("SMTP_USERNAME", "")
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
+    SMTP_USE_TLS: bool = os.getenv("SMTP_USE_TLS", "true").lower() == "true"
+    EMAIL_FROM_ADDRESS: str = os.getenv("EMAIL_FROM_ADDRESS", "noreply@enterprise-platform.com")
+    EMAIL_FROM_NAME: str = os.getenv("EMAIL_FROM_NAME", "Enterprise Unified Platform")
+    EMAIL_ENABLED: bool = os.getenv("EMAIL_ENABLED", "false").lower() == "true"
+    
     class Config:
         env_file = ".env"
         case_sensitive = True

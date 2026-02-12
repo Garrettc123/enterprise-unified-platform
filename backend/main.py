@@ -1,12 +1,12 @@
 from fastapi import FastAPI, WebSocket, Depends
-from fastapi.cors import CORSMiddleware
+from starlette.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
 
 from .database import init_db
 from .middleware import RequestLoggingMiddleware, RateLimitMiddleware
 from .websocket_manager import ConnectionManager
-from .routers import auth, projects, tasks, organizations, analytics, notifications, files, search, export, audit
+from .routers import auth, projects, tasks, organizations, analytics, notifications, files, search, export, audit, email_notifications
 
 # Configure logging
 logging.basicConfig(
@@ -63,6 +63,7 @@ app.include_router(files.router)
 app.include_router(search.router)
 app.include_router(export.router)
 app.include_router(audit.router)
+app.include_router(email_notifications.router)
 
 # Health check
 @app.get("/health")
