@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import datetime
 from typing import List
 
 from ..database import get_db
@@ -68,7 +67,6 @@ async def update_email_preferences(
     prefs.task_updated = preferences.task_updated
     prefs.comment_added = preferences.comment_added
     prefs.project_invitation = preferences.project_invitation
-    prefs.updated_at = datetime.utcnow()
 
     await db.commit()
     await db.refresh(prefs)

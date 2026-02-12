@@ -147,11 +147,12 @@ class TestEmailService:
         assert result is True
         mock_server.starttls.assert_not_called()
         mock_server.login.assert_not_called()
+        mock_server.sendmail.assert_called_once()
 
     @patch("backend.email_service.smtplib.SMTP")
     def test_send_email_failure(self, mock_smtp_class):
         """Test handling of SMTP failure."""
-        mock_smtp_class.side_effect = Exception("Connection refused")
+        mock_smtp_class.side_effect = OSError("Connection refused")
 
         service = EmailService(enabled=True, smtp_host="bad.host", smtp_port=587)
         result = service.send_email(

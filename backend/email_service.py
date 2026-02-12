@@ -152,21 +152,16 @@ class EmailService:
         msg = self._build_message(to_email, subject, html_body, text_body)
 
         try:
-            if self.use_tls:
-                with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
+            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
+                if self.use_tls:
                     server.starttls()
-                    if self.smtp_username and self.smtp_password:
-                        server.login(self.smtp_username, self.smtp_password)
-                    server.sendmail(self.from_address, to_email, msg.as_string())
-            else:
-                with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                    if self.smtp_username and self.smtp_password:
-                        server.login(self.smtp_username, self.smtp_password)
-                    server.sendmail(self.from_address, to_email, msg.as_string())
+                if self.smtp_username and self.smtp_password:
+                    server.login(self.smtp_username, self.smtp_password)
+                server.sendmail(self.from_address, to_email, msg.as_string())
 
             logger.info("Email sent successfully to %s: %s", to_email, subject)
             return True
-        except Exception:
+        except (smtplib.SMTPException, OSError):
             logger.exception("Failed to send email to %s", to_email)
             return False
 
