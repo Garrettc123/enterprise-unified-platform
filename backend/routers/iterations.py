@@ -134,6 +134,13 @@ async def update_iteration(
     if iteration_data.goal is not None:
         iteration.goal = iteration_data.goal
 
+    # Validate date range after updates
+    if iteration.end_date <= iteration.start_date:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="End date must be after start date"
+        )
+
     iteration.updated_at = datetime.utcnow()
     await db.commit()
     await db.refresh(iteration)

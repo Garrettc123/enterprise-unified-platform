@@ -192,6 +192,34 @@ def test_update_iteration(client):
     assert data["status"] == "active"
 
 
+def test_update_iteration_invalid_dates(client):
+    """Test that updating an iteration with invalid dates is rejected"""
+    token = _register_and_login(client)
+    _, project_id = _create_org_and_project(client, token)
+
+    # Create iteration
+    create_response = client.post(
+        "/api/iterations",
+        json={
+            "name": "Sprint 1",
+            "project_id": project_id,
+            "start_date": "2026-02-10T00:00:00",
+            "end_date": "2026-02-24T00:00:00",
+        },
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    iteration_id = create_response.json()["id"]
+
+    # Update with end_date before start_date
+    response = client.patch(
+        f"/api/iterations/{iteration_id}",
+        json={"end_date": "2026-02-05T00:00:00"},
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == 400
+    assert "End date must be after start date" in response.json()["detail"]
+
+
 def test_delete_iteration(client):
     """Test deleting an iteration"""
     token = _register_and_login(client)
