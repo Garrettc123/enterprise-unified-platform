@@ -1,5 +1,5 @@
 from fastapi import FastAPI, WebSocket, Depends
-from fastapi.cors import CORSMiddleware
+from starlette.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
 
@@ -31,12 +31,90 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("💤 Shutting down")
 
+# OpenAPI tag descriptions for Swagger documentation
+tags_metadata = [
+    {
+        "name": "auth",
+        "description": "Authentication and authorization. Register users, login to obtain JWT tokens, manage API keys, and retrieve user profiles.",
+    },
+    {
+        "name": "projects",
+        "description": "Project management. Create, read, update, and archive projects within organizations.",
+    },
+    {
+        "name": "tasks",
+        "description": "Task tracking. Create, manage, and track tasks within projects. Includes task comments and assignments.",
+    },
+    {
+        "name": "organizations",
+        "description": "Organization management. Create organizations, manage members and roles.",
+    },
+    {
+        "name": "analytics",
+        "description": "Analytics and reporting. Dashboard metrics, project status breakdowns, task trends, and team workload analysis.",
+    },
+    {
+        "name": "notifications",
+        "description": "User notifications. View, mark as read, and manage notifications.",
+    },
+    {
+        "name": "files",
+        "description": "File management. Upload, download, and delete file attachments on tasks.",
+    },
+    {
+        "name": "search",
+        "description": "Advanced search. Global search across projects, tasks, and users within an organization.",
+    },
+    {
+        "name": "export",
+        "description": "Data export. Export projects and tasks in CSV or JSON format.",
+    },
+    {
+        "name": "audit",
+        "description": "Audit logging. View audit trails, user activity logs, and summary statistics.",
+    },
+]
+
 # Create FastAPI app
 app = FastAPI(
     title="Enterprise Unified Platform",
-    description="Comprehensive enterprise management system with project management, task tracking, analytics, and real-time collaboration",
+    description="""
+## Overview
+
+A comprehensive enterprise management system providing project management, task tracking,
+analytics, and real-time collaboration capabilities.
+
+### Features
+
+* **Authentication & Security** — JWT-based auth with API key support
+* **Project Management** — Full CRUD for projects within organizations
+* **Task Tracking** — Create, assign, and track tasks with comments
+* **Team Collaboration** — Organization and member management
+* **Analytics & Reporting** — Dashboard metrics, trends, and workload analysis
+* **File Management** — Upload and manage file attachments
+* **Advanced Search** — Global search across all entities
+* **Data Export** — Export data in CSV and JSON formats
+* **Audit Logging** — Complete audit trail of all operations
+* **Real-time Updates** — WebSocket support for live notifications
+
+### Authentication
+
+Most endpoints require a Bearer token obtained via the `/login` endpoint:
+
+```
+Authorization: Bearer <access_token>
+```
+""",
     version="1.0.0",
-    lifespan=lifespan
+    openapi_tags=tags_metadata,
+    contact={
+        "name": "Enterprise Platform Support",
+        "email": "support@enterprise-platform.io",
+    },
+    license_info={
+        "name": "MIT",
+    },
+    lifespan=lifespan,
 )
 
 # Add middleware
@@ -65,9 +143,13 @@ app.include_router(export.router)
 app.include_router(audit.router)
 
 # Health check
-@app.get("/health")
+@app.get("/health", tags=["health"], summary="Health check")
 async def health_check():
-    """Health check endpoint"""
+    """Check the health of the API service.
+
+    Returns the service status, version, and number of active WebSocket
+    connections.
+    """
     return {
         "status": "healthy",
         "service": "Enterprise Unified Platform",
@@ -76,9 +158,9 @@ async def health_check():
     }
 
 # Root endpoint
-@app.get("/")
+@app.get("/", tags=["health"], summary="API root")
 async def root():
-    """API root endpoint"""
+    """API root returning service information, documentation link, and available features."""
     return {
         "message": "Welcome to Enterprise Unified Platform",
         "version": "1.0.0",

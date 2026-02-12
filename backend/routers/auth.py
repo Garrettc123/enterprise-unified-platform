@@ -17,15 +17,25 @@ from ..security import (
     decode_token
 )
 
-router = APIRouter()
+router = APIRouter(tags=["auth"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Register a new user",
+    responses={400: {"description": "Email or username already registered"}},
+)
 async def register_user(
     user_data: UserCreate,
     db: AsyncSession = Depends(get_db)
 ):
-    """Register new user"""
+    """Register a new user account.
+
+    Creates a new user with the provided username, email, and password.
+    The username and email must be unique across the platform.
+    """
     # Check if user exists
     result = await db.execute(
         select(User).where(
@@ -55,12 +65,24 @@ async def register_user(
     
     return new_user
 
-@router.post("/login", response_model=Token)
+@router.post(
+    "/login",
+    response_model=Token,
+    summary="Login and obtain tokens",
+    responses={
+        401: {"description": "Incorrect username or password"},
+        400: {"description": "Inactive user account"},
+    },
+)
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db)
 ):
-    """Login and get access token"""
+    """Authenticate a user and return JWT tokens.
+
+    Accepts username and password via OAuth2 form data.
+    Returns an access token and a refresh token on success.
+    """
     # Find user
     result = await db.execute(
         select(User).where(User.username == form_data.username)
@@ -90,12 +112,20 @@ async def login(
         "token_type": "bearer"
     }
 
-@router.get("/me", response_model=UserResponse)
+@router.get(
+    "/me",
+    response_model=UserResponse,
+    summary="Get current user profile",
+    responses={401: {"description": "Invalid or expired token"}},
+)
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get current authenticated user"""
+    """Retrieve the profile of the currently authenticated user.
+
+    Requires a valid Bearer token in the Authorization header.
+    """
     payload = decode_token(token)
     if payload is None:
         raise HTTPException(
@@ -122,13 +152,23 @@ async def get_current_user(
     
     return user
 
-@router.post("/api-keys", response_model=APIKeyResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/api-keys",
+    response_model=APIKeyResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new API key",
+    responses={401: {"description": "Not authenticated"}},
+)
 async def create_api_key(
     api_key_data: APIKeyCreate,
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Create new API key for user"""
+    """Create a new API key for the authenticated user.
+
+    API keys can be used as an alternative to JWT tokens for API access.
+    An optional expiration date may be provided.
+    """
     # Get current user
     user = await get_current_user(token, db)
     
@@ -149,12 +189,17 @@ async def create_api_key(
     
     return new_api_key
 
-@router.get("/api-keys", response_model=list[APIKeyResponse])
+@router.get(
+    "/api-keys",
+    response_model=list[APIKeyResponse],
+    summary="List API keys",
+    responses={401: {"description": "Not authenticated"}},
+)
 async def list_api_keys(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """List all API keys for current user"""
+    """List all API keys belonging to the authenticated user."""
     user = await get_current_user(token, db)
     
     result = await db.execute(

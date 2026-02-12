@@ -13,13 +13,16 @@ from ..routers.auth import oauth2_scheme, get_current_user
 
 router = APIRouter(prefix="/api/export", tags=["export"])
 
-@router.get("/projects/csv")
+@router.get(
+    "/projects/csv",
+    summary="Export projects as CSV",
+)
 async def export_projects_csv(
-    organization_id: int = Query(...),
+    organization_id: int = Query(..., description="Organization ID"),
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Export projects as CSV"""
+    """Download all projects in an organization as a CSV file."""
     await get_current_user(token, db)
     
     result = await db.execute(
@@ -49,13 +52,16 @@ async def export_projects_csv(
         headers={"Content-Disposition": "attachment; filename=projects.csv"}
     )
 
-@router.get("/tasks/csv")
+@router.get(
+    "/tasks/csv",
+    summary="Export tasks as CSV",
+)
 async def export_tasks_csv(
-    project_id: int = Query(...),
+    project_id: int = Query(..., description="Project ID"),
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Export tasks as CSV"""
+    """Download all tasks in a project as a CSV file."""
     await get_current_user(token, db)
     
     result = await db.execute(
@@ -86,13 +92,16 @@ async def export_tasks_csv(
         headers={"Content-Disposition": "attachment; filename=tasks.csv"}
     )
 
-@router.get("/projects/json")
+@router.get(
+    "/projects/json",
+    summary="Export projects as JSON",
+)
 async def export_projects_json(
-    organization_id: int = Query(...),
+    organization_id: int = Query(..., description="Organization ID"),
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Export projects as JSON"""
+    """Download all projects in an organization as a JSON file."""
     await get_current_user(token, db)
     
     result = await db.execute(
@@ -119,13 +128,16 @@ async def export_projects_json(
         headers={"Content-Disposition": "attachment; filename=projects.json"}
     )
 
-@router.get("/tasks/json")
+@router.get(
+    "/tasks/json",
+    summary="Export tasks as JSON",
+)
 async def export_tasks_json(
-    project_id: int = Query(...),
+    project_id: int = Query(..., description="Project ID"),
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Export tasks as JSON"""
+    """Download all tasks in a project as a JSON file."""
     await get_current_user(token, db)
     
     result = await db.execute(

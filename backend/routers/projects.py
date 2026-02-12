@@ -11,13 +11,23 @@ from ..routers.auth import oauth2_scheme, get_current_user
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
-@router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=ProjectResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new project",
+    responses={404: {"description": "Organization not found"}},
+)
 async def create_project(
     project_data: ProjectCreate,
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Create new project in organization"""
+    """Create a new project within an organization.
+
+    The specified organization must exist. The authenticated user is recorded
+    as the project creator.
+    """
     current_user = await get_current_user(token, db)
     
     # Verify organization exists and user has access
@@ -48,13 +58,18 @@ async def create_project(
     
     return new_project
 
-@router.get("/{project_id}", response_model=ProjectResponse)
+@router.get(
+    "/{project_id}",
+    response_model=ProjectResponse,
+    summary="Get project details",
+    responses={404: {"description": "Project not found"}},
+)
 async def get_project(
     project_id: int,
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get project details"""
+    """Retrieve details of a specific project by its ID."""
     await get_current_user(token, db)
     
     result = await db.execute(
@@ -70,16 +85,20 @@ async def get_project(
     
     return project
 
-@router.get("", response_model=List[ProjectResponse])
+@router.get(
+    "",
+    response_model=List[ProjectResponse],
+    summary="List projects",
+)
 async def list_projects(
-    organization_id: int = Query(...),
-    status: str = Query(None),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(10, ge=1, le=100),
+    organization_id: int = Query(..., description="Filter by organization ID"),
+    status: str = Query(None, description="Filter by project status (e.g. active, completed, archived)"),
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(10, ge=1, le=100, description="Maximum number of records to return"),
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """List projects with filtering"""
+    """List projects in an organization with optional status filtering and pagination."""
     await get_current_user(token, db)
     
     query = select(Project).where(Project.organization_id == organization_id)
@@ -93,14 +112,22 @@ async def list_projects(
     
     return projects
 
-@router.patch("/{project_id}", response_model=ProjectResponse)
+@router.patch(
+    "/{project_id}",
+    response_model=ProjectResponse,
+    summary="Update a project",
+    responses={404: {"description": "Project not found"}},
+)
 async def update_project(
     project_id: int,
     project_data: ProjectCreate,
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Update project"""
+    """Update an existing project's details.
+
+    All provided fields will overwrite the current values.
+    """
     current_user = await get_current_user(token, db)
     
     result = await db.execute(
@@ -127,13 +154,21 @@ async def update_project(
     
     return project
 
-@router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{project_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete (archive) a project",
+    responses={404: {"description": "Project not found"}},
+)
 async def delete_project(
     project_id: int,
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Delete project (soft delete via archiving)"""
+    """Archive a project by setting its status to 'archived'.
+
+    This is a soft delete — the project data is preserved.
+    """
     current_user = await get_current_user(token, db)
     
     result = await db.execute(

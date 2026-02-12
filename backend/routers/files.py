@@ -29,14 +29,27 @@ class FileResponse(BaseModel):
     class Config:
         from_attributes = True
 
-@router.post("/upload/{task_id}", response_model=FileResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/upload/{task_id}",
+    response_model=FileResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Upload a file to a task",
+    responses={
+        404: {"description": "Task not found"},
+        400: {"description": "File size exceeds 50 MB limit"},
+    },
+)
 async def upload_file(
     task_id: int,
     file: UploadFile = File(...),
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Upload file attachment to task"""
+    """Upload a file attachment to a task.
+
+    Maximum file size is 50 MB. The file is stored on disk and a metadata
+    record is created in the database.
+    """
     current_user = await get_current_user(token, db)
     
     # Verify task exists
@@ -82,13 +95,17 @@ async def upload_file(
     
     return attachment
 
-@router.get("/{attachment_id}")
+@router.get(
+    "/{attachment_id}",
+    summary="Download a file attachment",
+    responses={404: {"description": "File not found"}},
+)
 async def download_file(
     attachment_id: int,
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Download file attachment"""
+    """Download a file attachment by its ID."""
     current_user = await get_current_user(token, db)
     
     result = await db.execute(
@@ -113,13 +130,18 @@ async def download_file(
         filename=attachment.filename
     )
 
-@router.delete("/{attachment_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{attachment_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a file attachment",
+    responses={404: {"description": "File not found"}},
+)
 async def delete_file(
     attachment_id: int,
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Delete file attachment"""
+    """Delete a file attachment from disk and the database."""
     current_user = await get_current_user(token, db)
     
     result = await db.execute(

@@ -11,13 +11,22 @@ from ..routers.auth import oauth2_scheme, get_current_user
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
-@router.post("", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=TaskResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new task",
+    responses={404: {"description": "Project not found"}},
+)
 async def create_task(
     task_data: TaskCreate,
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Create new task in project"""
+    """Create a new task within a project.
+
+    The specified project must exist. Optionally assign the task to a user.
+    """
     current_user = await get_current_user(token, db)
     
     # Verify project exists
@@ -49,13 +58,18 @@ async def create_task(
     
     return new_task
 
-@router.get("/{task_id}", response_model=TaskResponse)
+@router.get(
+    "/{task_id}",
+    response_model=TaskResponse,
+    summary="Get task details",
+    responses={404: {"description": "Task not found"}},
+)
 async def get_task(
     task_id: int,
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get task details"""
+    """Retrieve details of a specific task by its ID."""
     await get_current_user(token, db)
     
     result = await db.execute(
@@ -71,18 +85,22 @@ async def get_task(
     
     return task
 
-@router.get("", response_model=List[TaskResponse])
+@router.get(
+    "",
+    response_model=List[TaskResponse],
+    summary="List tasks",
+)
 async def list_tasks(
-    project_id: int = Query(...),
-    status: str = Query(None),
-    assigned_to: int = Query(None),
-    priority: str = Query(None),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
+    project_id: int = Query(..., description="Filter by project ID"),
+    status: str = Query(None, description="Filter by task status (e.g. todo, in_progress, completed)"),
+    assigned_to: int = Query(None, description="Filter by assigned user ID"),
+    priority: str = Query(None, description="Filter by priority (low, medium, high, critical)"),
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """List tasks with advanced filtering"""
+    """List tasks within a project with optional filtering by status, assignee, and priority."""
     await get_current_user(token, db)
     
     query = select(Task).where(Task.project_id == project_id)
@@ -102,14 +120,23 @@ async def list_tasks(
     
     return tasks
 
-@router.patch("/{task_id}", response_model=TaskResponse)
+@router.patch(
+    "/{task_id}",
+    response_model=TaskResponse,
+    summary="Update a task",
+    responses={404: {"description": "Task not found"}},
+)
 async def update_task(
     task_id: int,
     task_data: TaskCreate,
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Update task"""
+    """Update an existing task.
+
+    Provided fields will overwrite current values. Setting status to
+    'completed' automatically records the completion timestamp.
+    """
     current_user = await get_current_user(token, db)
     
     result = await db.execute(
@@ -145,13 +172,18 @@ async def update_task(
     
     return task
 
-@router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{task_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a task",
+    responses={404: {"description": "Task not found"}},
+)
 async def delete_task(
     task_id: int,
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Delete task"""
+    """Permanently delete a task and its associated data."""
     current_user = await get_current_user(token, db)
     
     result = await db.execute(
@@ -168,14 +200,20 @@ async def delete_task(
     await db.delete(task)
     await db.commit()
 
-@router.post("/{task_id}/comments", response_model=CommentResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{task_id}/comments",
+    response_model=CommentResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Add a comment to a task",
+    responses={404: {"description": "Task not found"}},
+)
 async def add_comment(
     task_id: int,
     comment_data: CommentCreate,
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Add comment to task"""
+    """Add a comment to a task for team collaboration."""
     current_user = await get_current_user(token, db)
     
     # Verify task exists
@@ -202,15 +240,19 @@ async def add_comment(
     
     return new_comment
 
-@router.get("/{task_id}/comments", response_model=List[CommentResponse])
+@router.get(
+    "/{task_id}/comments",
+    response_model=List[CommentResponse],
+    summary="List comments on a task",
+)
 async def get_comments(
     task_id: int,
-    skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get comments for task"""
+    """Retrieve all comments for a task, ordered by most recent first."""
     await get_current_user(token, db)
     
     query = select(Comment).where(

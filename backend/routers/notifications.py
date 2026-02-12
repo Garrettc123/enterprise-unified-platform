@@ -27,15 +27,22 @@ class NotificationResponse(BaseModel):
     class Config:
         from_attributes = True
 
-@router.get("", response_model=List[NotificationResponse])
+@router.get(
+    "",
+    response_model=List[NotificationResponse],
+    summary="List notifications",
+)
 async def get_notifications(
-    unread_only: bool = Query(False),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
+    unread_only: bool = Query(False, description="Return only unread notifications"),
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get user notifications"""
+    """List notifications for the authenticated user.
+
+    Supports filtering to show only unread notifications and pagination.
+    """
     current_user = await get_current_user(token, db)
     
     query = select(Notification).where(
@@ -52,13 +59,21 @@ async def get_notifications(
     
     return notifications
 
-@router.post("/{notification_id}/read", status_code=status.HTTP_204_NO_CONTENT)
+@router.post(
+    "/{notification_id}/read",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Mark notification as read",
+    responses={
+        404: {"description": "Notification not found"},
+        403: {"description": "Not authorized to access this notification"},
+    },
+)
 async def mark_as_read(
     notification_id: int,
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Mark notification as read"""
+    """Mark a single notification as read."""
     current_user = await get_current_user(token, db)
     
     result = await db.execute(
@@ -82,12 +97,16 @@ async def mark_as_read(
     notification.read_at = datetime.utcnow()
     await db.commit()
 
-@router.post("/mark-all-as-read", status_code=status.HTTP_204_NO_CONTENT)
+@router.post(
+    "/mark-all-as-read",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Mark all notifications as read",
+)
 async def mark_all_as_read(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Mark all notifications as read"""
+    """Mark all unread notifications as read for the authenticated user."""
     current_user = await get_current_user(token, db)
     
     stmt = update(Notification).where(
@@ -101,12 +120,15 @@ async def mark_all_as_read(
     await db.execute(stmt)
     await db.commit()
 
-@router.get("/unread-count")
+@router.get(
+    "/unread-count",
+    summary="Get unread notification count",
+)
 async def get_unread_count(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ) -> dict:
-    """Get unread notification count"""
+    """Return the number of unread notifications for the authenticated user."""
     current_user = await get_current_user(token, db)
     
     result = await db.execute(

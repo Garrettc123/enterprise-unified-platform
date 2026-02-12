@@ -25,18 +25,27 @@ class AuditLogResponse(BaseModel):
     class Config:
         from_attributes = True
 
-@router.get("/logs", response_model=List[AuditLogResponse])
+@router.get(
+    "/logs",
+    response_model=List[AuditLogResponse],
+    summary="Get audit logs",
+    responses={403: {"description": "Not authorized to view audit logs"}},
+)
 async def get_audit_logs(
-    organization_id: int = Query(...),
-    days: int = Query(30, ge=1, le=365),
-    action: str = Query(None),
-    entity_type: str = Query(None),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
+    organization_id: int = Query(..., description="Organization ID"),
+    days: int = Query(30, ge=1, le=365, description="Number of past days to include"),
+    action: str = Query(None, description="Filter by action type"),
+    entity_type: str = Query(None, description="Filter by entity type (e.g. project, task)"),
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(50, ge=1, le=100, description="Maximum number of records to return"),
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get audit logs for organization"""
+    """Retrieve audit logs for an organization.
+
+    Supports filtering by action type, entity type, and time range. The caller
+    must be a member of the organization.
+    """
     current_user = await get_current_user(token, db)
     
     # Verify user belongs to organization
@@ -69,16 +78,20 @@ async def get_audit_logs(
     
     return logs
 
-@router.get("/logs/user/{user_id}", response_model=List[AuditLogResponse])
+@router.get(
+    "/logs/user/{user_id}",
+    response_model=List[AuditLogResponse],
+    summary="Get user audit logs",
+)
 async def get_user_audit_logs(
     user_id: int,
-    days: int = Query(30, ge=1, le=365),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
+    days: int = Query(30, ge=1, le=365, description="Number of past days to include"),
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(50, ge=1, le=100, description="Maximum number of records to return"),
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get audit logs for specific user"""
+    """Retrieve audit logs for a specific user."""
     await get_current_user(token, db)
     
     cutoff_date = datetime.utcnow() - timedelta(days=days)
@@ -93,14 +106,21 @@ async def get_user_audit_logs(
     
     return logs
 
-@router.get("/summary")
+@router.get(
+    "/summary",
+    summary="Get audit summary",
+)
 async def get_audit_summary(
-    organization_id: int = Query(...),
-    days: int = Query(30, ge=1, le=365),
+    organization_id: int = Query(..., description="Organization ID"),
+    days: int = Query(30, ge=1, le=365, description="Number of past days to include"),
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ) -> dict:
-    """Get audit summary statistics"""
+    """Get summary statistics of audit activity.
+
+    Returns total actions and a breakdown by action type for the specified
+    time period.
+    """
     current_user = await get_current_user(token, db)
     
     cutoff_date = datetime.utcnow() - timedelta(days=days)

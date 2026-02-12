@@ -18,17 +18,24 @@ class SearchResult:
         self.description = description
         self.relevance = relevance
 
-@router.get("/")
+@router.get(
+    "/",
+    summary="Global search",
+)
 async def global_search(
-    q: str = Query(..., min_length=2),
-    type_filter: str = Query(None),
-    organization_id: int = Query(...),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
+    q: str = Query(..., min_length=2, description="Search query (minimum 2 characters)"),
+    type_filter: str = Query(None, description="Restrict results to a type: project, task, or user"),
+    organization_id: int = Query(..., description="Organization ID to search within"),
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ) -> List[dict]:
-    """Global search across projects, tasks, and users"""
+    """Search across projects, tasks, and users within an organization.
+
+    Optionally filter results to a specific entity type. Results include a URL
+    for navigating to the matched item.
+    """
     await get_current_user(token, db)
     
     results = []
@@ -97,16 +104,19 @@ async def global_search(
     
     return results[skip:skip+limit]
 
-@router.get("/projects")
+@router.get(
+    "/projects",
+    summary="Search projects",
+)
 async def search_projects(
-    q: str = Query(..., min_length=2),
-    organization_id: int = Query(...),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
+    q: str = Query(..., min_length=2, description="Search query (minimum 2 characters)"),
+    organization_id: int = Query(..., description="Organization ID to search within"),
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Search projects"""
+    """Search for projects by name or description within an organization."""
     await get_current_user(token, db)
     
     result = await db.execute(
@@ -121,16 +131,19 @@ async def search_projects(
     
     return result.scalars().all()
 
-@router.get("/tasks")
+@router.get(
+    "/tasks",
+    summary="Search tasks",
+)
 async def search_tasks(
-    q: str = Query(..., min_length=2),
-    organization_id: int = Query(...),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
+    q: str = Query(..., min_length=2, description="Search query (minimum 2 characters)"),
+    organization_id: int = Query(..., description="Organization ID to search within"),
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Search tasks"""
+    """Search for tasks by title or description within an organization."""
     await get_current_user(token, db)
     
     result = await db.execute(

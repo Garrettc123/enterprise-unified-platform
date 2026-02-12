@@ -10,13 +10,20 @@ from ..routers.auth import oauth2_scheme, get_current_user
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
-@router.get("/dashboard/overview")
+@router.get(
+    "/dashboard/overview",
+    summary="Get dashboard overview",
+)
 async def get_dashboard_overview(
-    organization_id: int = Query(...),
+    organization_id: int = Query(..., description="Organization ID"),
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ) -> Dict:
-    """Get dashboard overview metrics"""
+    """Get high-level dashboard metrics for an organization.
+
+    Returns total projects, active projects, task counts, completion rate,
+    and team size.
+    """
     current_user = await get_current_user(token, db)
     
     # Get project stats
@@ -73,13 +80,16 @@ async def get_dashboard_overview(
         "team_size": team_size
     }
 
-@router.get("/projects/status-breakdown")
+@router.get(
+    "/projects/status-breakdown",
+    summary="Get project status breakdown",
+)
 async def get_project_status_breakdown(
-    organization_id: int = Query(...),
+    organization_id: int = Query(..., description="Organization ID"),
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ) -> List[Dict]:
-    """Get project status breakdown"""
+    """Get a count of projects grouped by their status within an organization."""
     await get_current_user(token, db)
     
     result = await db.execute(
@@ -100,13 +110,16 @@ async def get_project_status_breakdown(
     
     return data
 
-@router.get("/tasks/priority-distribution")
+@router.get(
+    "/tasks/priority-distribution",
+    summary="Get task priority distribution",
+)
 async def get_task_priority_distribution(
-    organization_id: int = Query(...),
+    organization_id: int = Query(..., description="Organization ID"),
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ) -> List[Dict]:
-    """Get task priority distribution"""
+    """Get a count of tasks grouped by priority level within an organization."""
     await get_current_user(token, db)
     
     result = await db.execute(
@@ -129,14 +142,21 @@ async def get_task_priority_distribution(
     
     return data
 
-@router.get("/tasks/status-trend")
+@router.get(
+    "/tasks/status-trend",
+    summary="Get task completion trend",
+)
 async def get_task_status_trend(
-    organization_id: int = Query(...),
-    days: int = Query(30, ge=1, le=365),
+    organization_id: int = Query(..., description="Organization ID"),
+    days: int = Query(30, ge=1, le=365, description="Number of past days to include"),
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ) -> List[Dict]:
-    """Get task completion trend over time"""
+    """Get task completion counts over time.
+
+    Returns a daily breakdown of completed tasks for the specified number of
+    past days.
+    """
     await get_current_user(token, db)
     
     cutoff_date = datetime.utcnow() - timedelta(days=days)
@@ -163,13 +183,16 @@ async def get_task_status_trend(
     
     return data
 
-@router.get("/team/workload")
+@router.get(
+    "/team/workload",
+    summary="Get team workload",
+)
 async def get_team_workload(
-    organization_id: int = Query(...),
+    organization_id: int = Query(..., description="Organization ID"),
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ) -> List[Dict]:
-    """Get team member workload"""
+    """Get the number of tasks assigned to each team member in an organization."""
     await get_current_user(token, db)
     
     result = await db.execute(
