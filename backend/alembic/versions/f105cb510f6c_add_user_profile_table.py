@@ -36,9 +36,9 @@ def upgrade() -> None:
         sa.Column('website', sa.String(500), nullable=True),
         sa.Column('date_of_birth', sa.DateTime(), nullable=True),
         sa.Column('profile_visibility', sa.String(20), server_default='public', nullable=True),
-        sa.Column('notification_preferences', sa.JSON(), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.Column('updated_at', sa.DateTime(), nullable=True),
+        sa.Column('notification_preferences', sa.JSON(), server_default='{}', nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.func.now(), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.func.now(), nullable=True),
     )
     op.create_index('idx_userprofile_user_id', 'user_profile', ['user_id'])
 

@@ -70,7 +70,7 @@ class UserProfile(Base):
     website = Column(String(500))
     date_of_birth = Column(DateTime)
     profile_visibility = Column(String(20), default='public')  # public, private, organization
-    notification_preferences = Column(JSON, default={})
+    notification_preferences = Column(JSON, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

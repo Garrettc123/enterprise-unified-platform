@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from datetime import datetime
 from typing import Optional, List
 
@@ -26,15 +26,24 @@ class UserProfileBase(BaseModel):
     location: Optional[str] = Field(None, max_length=255)
     job_title: Optional[str] = Field(None, max_length=255)
     department: Optional[str] = Field(None, max_length=255)
-    timezone: Optional[str] = Field('UTC', max_length=50)
-    language: Optional[str] = Field('en', max_length=10)
+    timezone: str = Field('UTC', max_length=50)
+    language: str = Field('en', max_length=10)
     linkedin_url: Optional[str] = Field(None, max_length=500)
     github_url: Optional[str] = Field(None, max_length=500)
     twitter_url: Optional[str] = Field(None, max_length=500)
     website: Optional[str] = Field(None, max_length=500)
     date_of_birth: Optional[datetime] = None
-    profile_visibility: Optional[str] = Field('public', max_length=20)
+    profile_visibility: str = Field('public', max_length=20)
     notification_preferences: Optional[dict] = None
+
+    @field_validator('profile_visibility')
+    @classmethod
+    def validate_visibility(cls, v: str) -> str:
+        allowed = ('public', 'private', 'organization')
+        if v not in allowed:
+            msg = f"profile_visibility must be one of {allowed}"
+            raise ValueError(msg)
+        return v
 
 class UserProfileCreate(UserProfileBase):
     pass
