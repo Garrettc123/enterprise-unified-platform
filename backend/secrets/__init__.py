@@ -6,11 +6,12 @@ import os
 from enum import Enum
 from typing import Any
 
-from .aws_secrets import AWSSecretsManager
+from .aws_secrets import AWS_AVAILABLE, AWSSecretsManager
 from .azure_secrets import AZURE_AVAILABLE, AzureKeyVaultManager
 from .gcp_secrets import GCP_AVAILABLE, GCPSecretsManager
 
 __all__ = [
+    "AWS_AVAILABLE",
     "AWSSecretsManager",
     "AzureKeyVaultManager",
     "GCPSecretsManager",
@@ -52,6 +53,9 @@ def get_secrets_manager(
     provider_str = provider_str.lower()
 
     if provider_str == "aws":
+        if not AWS_AVAILABLE:
+            msg = "AWS secrets requires boto3 package"
+            raise ValueError(msg)
         region = kwargs.get("region", os.getenv("AWS_REGION", "us-east-1"))
         return AWSSecretsManager(region_name=region)
 

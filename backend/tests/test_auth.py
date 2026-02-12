@@ -3,34 +3,46 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from backend.main import app
 from backend.database import get_db
-from backend.models import Base, User
-from backend.security import get_password_hash
+from backend.models import Base
 
-TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
 
-@pytest.fixture
-async def test_db():
-    """Create test database"""
-    engine = create_async_engine(
+
+@pytest.fixture(autouse=True)
+def setup_db():
+    """Create test database tables before each test and drop after"""
+    from sqlalchemy import create_engine
+
+    sync_engine = create_engine(
+        "sqlite:///./test.db",
+        connect_args={"check_same_thread": False},
+    )
+    Base.metadata.create_all(bind=sync_engine)
+
+    async_engine = create_async_engine(
         TEST_DATABASE_URL,
         connect_args={"check_same_thread": False},
     )
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    
-    async_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    
+    testing_session = async_sessionmaker(
+        async_engine, class_=AsyncSession, expire_on_commit=False
+    )
+
     async def override_get_db():
-        async with async_session_factory() as session:
+        async with testing_session() as session:
             yield session
-    
+
     app.dependency_overrides[get_db] = override_get_db
-    
-    yield async_session_factory
-    
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-    await engine.dispose()
+    yield
+    app.dependency_overrides.clear()
+    Base.metadata.drop_all(bind=sync_engine)
+    sync_engine.dispose()
+
+
+@pytest.fixture
+def client():
+    """Create test client"""
+    return TestClient(app)
+
 
 @pytest.fixture
 def client():

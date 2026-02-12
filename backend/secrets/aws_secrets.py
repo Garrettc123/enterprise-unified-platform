@@ -5,8 +5,13 @@ from __future__ import annotations
 import json
 from typing import Any
 
-import boto3
-from botocore.exceptions import ClientError
+try:
+    import boto3
+    from botocore.exceptions import ClientError
+
+    AWS_AVAILABLE = True
+except ImportError:
+    AWS_AVAILABLE = False
 
 
 class AWSSecretsManager:
@@ -17,7 +22,13 @@ class AWSSecretsManager:
 
         Args:
             region_name: AWS region for Secrets Manager
+
+        Raises:
+            ImportError: If boto3 is not installed
         """
+        if not AWS_AVAILABLE:
+            msg = "boto3 package not installed"
+            raise ImportError(msg)
         self.client = boto3.client("secretsmanager", region_name=region_name)
         self.region_name = region_name
 
