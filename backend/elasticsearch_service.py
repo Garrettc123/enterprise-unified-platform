@@ -8,7 +8,7 @@ when Elasticsearch is unavailable.
 import logging
 from typing import Any, Dict, List, Optional
 
-from elasticsearch import AsyncElasticsearch, NotFoundError
+from elasticsearch import AsyncElasticsearch, ConnectionError as ESConnectionError, NotFoundError, TransportError
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +99,7 @@ class ElasticsearchService:
                 info.get("cluster_name", "unknown"),
             )
             return True
-        except Exception:
+        except (ESConnectionError, TransportError, ConnectionError, TimeoutError):
             logger.warning(
                 "Elasticsearch unavailable at %s. Search will use database fallback.",
                 self.elasticsearch_url,
@@ -131,8 +131,8 @@ class ElasticsearchService:
                 if not exists:
                     await self.client.indices.create(index=index_name, body=mapping)
                     logger.info("Created index: %s", index_name)
-            except Exception:
-                logger.exception("Failed to create index %s", index_name)
+            except (TransportError, ESConnectionError) as exc:
+                logger.warning("Failed to create index %s: %s", index_name, exc)
 
     async def index_document(
         self, entity_type: str, doc_id: int, document: Dict[str, Any]
@@ -145,8 +145,8 @@ class ElasticsearchService:
         try:
             await self.client.index(index=index_name, id=str(doc_id), document=document)
             return True
-        except Exception:
-            logger.exception("Failed to index document %s/%s", index_name, doc_id)
+        except (TransportError, ESConnectionError) as exc:
+            logger.warning("Failed to index document %s/%s: %s", index_name, doc_id, exc)
             return False
 
     async def bulk_index(
@@ -159,9 +159,10 @@ class ElasticsearchService:
         index_name = self._index_name(entity_type)
         operations = []
         for doc in documents:
-            doc_id = doc.pop("id", None)
+            doc_id = doc.get("id")
+            doc_body = {k: v for k, v in doc.items() if k != "id"}
             operations.append({"index": {"_index": index_name, "_id": str(doc_id)}})
-            operations.append(doc)
+            operations.append(doc_body)
 
         if not operations:
             return {"indexed": 0, "errors": 0}
@@ -173,8 +174,8 @@ class ElasticsearchService:
                 "indexed": len(documents) - errors,
                 "errors": errors,
             }
-        except Exception:
-            logger.exception("Bulk indexing failed for %s", index_name)
+        except (TransportError, ESConnectionError) as exc:
+            logger.warning("Bulk indexing failed for %s: %s", index_name, exc)
             return {"indexed": 0, "errors": len(documents)}
 
     async def delete_document(self, entity_type: str, doc_id: int) -> bool:
@@ -188,8 +189,8 @@ class ElasticsearchService:
             return True
         except NotFoundError:
             return False
-        except Exception:
-            logger.exception("Failed to delete document %s/%s", index_name, doc_id)
+        except (TransportError, ESConnectionError) as exc:
+            logger.warning("Failed to delete document %s/%s: %s", index_name, doc_id, exc)
             return False
 
     async def search(
@@ -297,8 +298,8 @@ class ElasticsearchService:
                 "results": results,
                 "total": response["hits"]["total"]["value"],
             }
-        except Exception:
-            logger.exception("Search failed for query: %s", query)
+        except (TransportError, ESConnectionError) as exc:
+            logger.warning("Search failed for query: %s: %s", query, exc)
             return {"results": [], "total": 0}
 
     async def suggest(
@@ -364,8 +365,8 @@ class ElasticsearchService:
                     "title": source.get("name") or source.get("title") or source.get("full_name") or source.get("username", ""),
                 })
             return suggestions
-        except Exception:
-            logger.exception("Suggest failed for query: %s", query)
+        except (TransportError, ESConnectionError) as exc:
+            logger.warning("Suggest failed for query: %s: %s", query, exc)
             return []
 
 

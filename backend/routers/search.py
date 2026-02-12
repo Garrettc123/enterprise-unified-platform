@@ -310,7 +310,7 @@ async def reindex_entity(
 
     Requires authentication. Supported entity types: projects, tasks, users.
     """
-    user = await get_current_user(token, db)
+    await get_current_user(token, db)
 
     es = get_elasticsearch_service()
     if not es or not es.is_available:
