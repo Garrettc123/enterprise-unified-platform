@@ -30,13 +30,15 @@ def _calculate_period_end(start: datetime, billing_cycle: str) -> datetime:
     """Calculate end of billing period from start date and cycle."""
     if billing_cycle == "annual":
         return start.replace(year=start.year + 1)
-    # monthly
+    # monthly – advance one month, preserving day when possible
     month = start.month + 1
     year = start.year
     if month > 12:
         month = 1
         year += 1
-    day = min(start.day, 28)  # safe day for all months
+    import calendar
+    last_day = calendar.monthrange(year, month)[1]
+    day = min(start.day, last_day)
     return start.replace(year=year, month=month, day=day)
 
 
@@ -296,16 +298,7 @@ async def get_revenue_metrics(
     await get_current_user(token, db)
 
     # --- Monthly Recurring Revenue (MRR) ---
-    mrr_query = select(func.coalesce(func.sum(Subscription.amount), 0)).where(
-        Subscription.status.in_(["active", "trialing"])
-    )
-    if organization_id:
-        mrr_query = mrr_query.where(Subscription.organization_id == organization_id)
-    mrr_result = await db.execute(mrr_query)
-    # All amounts stored as per-cycle; normalise annual subs to monthly
-    raw_mrr = float(mrr_result.scalar() or 0)
-
-    # More precise MRR: monthly subs contribute amount; annual subs contribute amount/12
+    # monthly subs contribute amount; annual subs contribute amount/12
     monthly_mrr_q = select(func.coalesce(func.sum(Subscription.amount), 0)).where(
         Subscription.status.in_(["active", "trialing"]),
         Subscription.billing_cycle == "monthly",
