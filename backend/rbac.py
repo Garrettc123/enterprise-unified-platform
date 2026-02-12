@@ -65,7 +65,7 @@ async def get_user_org_role(
     try:
         return OrganizationRole(role_value)
     except ValueError:
-        return OrganizationRole.MEMBER
+        return None
 
 
 async def get_user_project_role(
@@ -89,7 +89,7 @@ async def get_user_project_role(
     try:
         return ProjectRole(role_value)
     except ValueError:
-        return ProjectRole.CONTRIBUTOR
+        return None
 
 
 def require_superuser(user: User) -> User:

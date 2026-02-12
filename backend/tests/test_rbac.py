@@ -25,11 +25,6 @@ from backend.rbac import (
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 
-def _run(coro):
-    """Helper to run async code in sync tests."""
-    return asyncio.get_event_loop().run_until_complete(coro)
-
-
 async def _setup_engine():
     engine = create_async_engine(
         TEST_DATABASE_URL,
