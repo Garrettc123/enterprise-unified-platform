@@ -44,11 +44,6 @@ def client():
     return TestClient(app)
 
 
-@pytest.fixture
-def client():
-    """Create test client"""
-    return TestClient(app)
-
 def test_register_user(client):
     """Test user registration"""
     response = client.post(
