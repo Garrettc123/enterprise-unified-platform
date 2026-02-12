@@ -8,7 +8,15 @@ import secrets
 
 from ..database import get_db
 from ..models import User, APIKey
-from ..schemas import UserCreate, UserResponse, Token, APIKeyCreate, APIKeyResponse
+from ..schemas import (
+    UserCreate,
+    UserResponse,
+    Token,
+    TokenRefresh,
+    PasswordChange,
+    APIKeyCreate,
+    APIKeyResponse,
+)
 from ..security import (
     get_password_hash,
     verify_password,
@@ -17,7 +25,7 @@ from ..security import (
     decode_token
 )
 
-router = APIRouter()
+router = APIRouter(prefix="/api/auth", tags=["auth"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -90,12 +98,11 @@ async def login(
         "token_type": "bearer"
     }
 
-@router.get("/me", response_model=UserResponse)
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
-):
-    """Get current authenticated user"""
+) -> User:
+    """Dependency to get the current authenticated user from JWT token."""
     payload = decode_token(token)
     if payload is None:
         raise HTTPException(
@@ -103,63 +110,135 @@ async def get_current_user(
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     username: str = payload.get("sub")
     if username is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials"
         )
-    
+
     result = await db.execute(select(User).where(User.username == username))
     user = result.scalar_one_or_none()
-    
+
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found"
         )
-    
+
     return user
+
+@router.get("/me", response_model=UserResponse)
+async def read_current_user(
+    current_user: User = Depends(get_current_user),
+):
+    """Get current authenticated user"""
+    return current_user
+
+@router.post("/refresh", response_model=Token)
+async def refresh_token(
+    token_data: TokenRefresh,
+    db: AsyncSession = Depends(get_db)
+):
+    """Refresh access token using a valid refresh token"""
+    payload = decode_token(token_data.refresh_token)
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    username: str = payload.get("sub")
+    if username is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token"
+        )
+
+    result = await db.execute(select(User).where(User.username == username))
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found"
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Inactive user"
+        )
+
+    access_token = create_access_token(data={"sub": user.username})
+    refresh_token = create_refresh_token(data={"sub": user.username})
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer"
+    }
+
+@router.put("/password")
+async def change_password(
+    password_data: PasswordChange,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Change password for the current authenticated user"""
+    if not verify_password(password_data.current_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incorrect current password"
+        )
+
+    current_user.hashed_password = get_password_hash(password_data.new_password)
+    await db.commit()
+
+    return {"message": "Password updated successfully"}
+
+@router.post("/logout")
+async def logout(
+    current_user: User = Depends(get_current_user),
+):
+    """Logout current user (client should discard tokens)"""
+    return {"message": "Successfully logged out"}
 
 @router.post("/api-keys", response_model=APIKeyResponse, status_code=status.HTTP_201_CREATED)
 async def create_api_key(
     api_key_data: APIKeyCreate,
-    token: str = Depends(oauth2_scheme),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """Create new API key for user"""
-    # Get current user
-    user = await get_current_user(token, db)
-    
     # Generate secure API key
     key = f"ep_{secrets.token_urlsafe(32)}"
-    
+
     # Create API key
     new_api_key = APIKey(
         key=key,
         name=api_key_data.name,
-        user_id=user.id,
+        user_id=current_user.id,
         expires_at=api_key_data.expires_at
     )
-    
+
     db.add(new_api_key)
     await db.commit()
     await db.refresh(new_api_key)
-    
+
     return new_api_key
 
 @router.get("/api-keys", response_model=list[APIKeyResponse])
 async def list_api_keys(
-    token: str = Depends(oauth2_scheme),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """List all API keys for current user"""
-    user = await get_current_user(token, db)
-    
     result = await db.execute(
-        select(APIKey).where(APIKey.user_id == user.id)
+        select(APIKey).where(APIKey.user_id == current_user.id)
     )
     api_keys = result.scalars().all()
-    
+
     return api_keys

@@ -105,6 +105,13 @@ class Token(BaseModel):
     refresh_token: str
     token_type: str = 'bearer'
 
+class TokenRefresh(BaseModel):
+    refresh_token: str
+
+class PasswordChange(BaseModel):
+    current_password: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=8)
+
 class APIKeyCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     expires_at: Optional[datetime] = None
