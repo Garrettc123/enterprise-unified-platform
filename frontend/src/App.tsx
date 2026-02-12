@@ -6,6 +6,7 @@ from './pages/Dashboard'
 from './pages/Projects'
 from './pages/ProjectDetail'
 from './pages/Tasks'
+import AdminDashboard from './pages/AdminDashboard'
 import ProtectedRoute from './components/ProtectedRoute'
 import './App.css'
 
@@ -27,6 +28,7 @@ function App() {
                     <Route path="/projects" element={<Projects />} />
                     <Route path="/projects/:id" element={<ProjectDetail />} />
                     <Route path="/tasks" element={<Tasks />} />
+                    <Route path="/admin" element={<AdminDashboard />} />
                     <Route path="/" element={<Navigate to="/dashboard" />} />
                   </Routes>
                 </div>

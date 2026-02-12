@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List
 
 from ..database import get_db
-from ..models import Project, Task, User, Organization
+from ..models import Project, Task, User, Organization, AuditLog
 from ..routers.auth import oauth2_scheme, get_current_user
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
@@ -193,3 +193,131 @@ async def get_team_workload(
         })
     
     return data
+
+
+@router.get("/admin/overview")
+async def get_admin_overview(
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db)
+) -> Dict:
+    """Get admin dashboard overview with system-wide analytics"""
+    current_user = await get_current_user(token, db)
+
+    # Total users
+    users_result = await db.execute(select(func.count(User.id)))
+    total_users = users_result.scalar() or 0
+
+    # Active users
+    active_users_result = await db.execute(
+        select(func.count(User.id)).where(User.is_active.is_(True))
+    )
+    active_users = active_users_result.scalar() or 0
+
+    # Total organizations
+    orgs_result = await db.execute(select(func.count(Organization.id)))
+    total_organizations = orgs_result.scalar() or 0
+
+    # Total projects
+    projects_result = await db.execute(select(func.count(Project.id)))
+    total_projects = projects_result.scalar() or 0
+
+    # Projects by status
+    project_status_result = await db.execute(
+        select(
+            Project.status,
+            func.count(Project.id).label('count')
+        ).group_by(Project.status)
+    )
+    project_status_breakdown = [
+        {"status": row[0], "count": row[1]}
+        for row in project_status_result.all()
+    ]
+
+    # Total tasks
+    tasks_result = await db.execute(select(func.count(Task.id)))
+    total_tasks = tasks_result.scalar() or 0
+
+    # Completed tasks
+    completed_tasks_result = await db.execute(
+        select(func.count(Task.id)).where(Task.status == 'completed')
+    )
+    completed_tasks = completed_tasks_result.scalar() or 0
+
+    # Tasks by priority
+    task_priority_result = await db.execute(
+        select(
+            Task.priority,
+            func.count(Task.id).label('count')
+        ).group_by(Task.priority)
+    )
+    task_priority_breakdown = [
+        {"priority": row[0], "count": row[1]}
+        for row in task_priority_result.all()
+    ]
+
+    # Tasks by status
+    task_status_result = await db.execute(
+        select(
+            Task.status,
+            func.count(Task.id).label('count')
+        ).group_by(Task.status)
+    )
+    task_status_breakdown = [
+        {"status": row[0], "count": row[1]}
+        for row in task_status_result.all()
+    ]
+
+    # Recent audit logs
+    audit_result = await db.execute(
+        select(
+            AuditLog.action,
+            AuditLog.entity_type,
+            AuditLog.entity_id,
+            AuditLog.created_at,
+            User.username,
+        )
+        .outerjoin(User, AuditLog.user_id == User.id)
+        .order_by(desc(AuditLog.created_at))
+        .limit(10)
+    )
+    recent_activity = [
+        {
+            "action": row[0],
+            "entity_type": row[1],
+            "entity_id": row[2],
+            "created_at": row[3].isoformat() if row[3] else None,
+            "username": row[4],
+        }
+        for row in audit_result.all()
+    ]
+
+    # New users in last 7 days
+    week_ago = datetime.utcnow() - timedelta(days=7)
+    new_users_result = await db.execute(
+        select(func.count(User.id)).where(User.created_at >= week_ago)
+    )
+    new_users_last_week = new_users_result.scalar() or 0
+
+    # New projects in last 7 days
+    new_projects_result = await db.execute(
+        select(func.count(Project.id)).where(Project.created_at >= week_ago)
+    )
+    new_projects_last_week = new_projects_result.scalar() or 0
+
+    completion_rate = (completed_tasks / total_tasks * 100) if total_tasks > 0 else 0
+
+    return {
+        "total_users": total_users,
+        "active_users": active_users,
+        "total_organizations": total_organizations,
+        "total_projects": total_projects,
+        "total_tasks": total_tasks,
+        "completed_tasks": completed_tasks,
+        "completion_rate": round(completion_rate, 1),
+        "new_users_last_week": new_users_last_week,
+        "new_projects_last_week": new_projects_last_week,
+        "project_status_breakdown": project_status_breakdown,
+        "task_priority_breakdown": task_priority_breakdown,
+        "task_status_breakdown": task_status_breakdown,
+        "recent_activity": recent_activity,
+    }
