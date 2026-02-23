@@ -12,39 +12,39 @@ router = APIRouter(prefix="/api/organizations", tags=["organizations"])
 
 @router.post("", response_model=OrganizationResponse, status_code=status.HTTP_201_CREATED)
 async def create_organization(
-    org_data: OrganizationCreate,
+    organization_data: OrganizationCreate,
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
     """Create new organization"""
     current_user = await get_current_user(token, db)
-    
+
     # Check if slug already exists
     existing = await db.execute(
-        select(Organization).where(Organization.slug == org_data.slug)
+        select(Organization).where(Organization.slug == organization_data.slug)
     )
     if existing.scalar_one_or_none():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Organization slug already exists"
         )
-    
+
     # Create organization
-    new_org = Organization(
-        name=org_data.name,
-        slug=org_data.slug,
-        description=org_data.description,
-        website=org_data.website
+    new_organization = Organization(
+        name=organization_data.name,
+        slug=organization_data.slug,
+        description=organization_data.description,
+        website=organization_data.website
     )
-    
+
     # Add creator as member
-    new_org.members.append(current_user)
-    
-    db.add(new_org)
+    new_organization.members.append(current_user)
+
+    db.add(new_organization)
     await db.commit()
-    await db.refresh(new_org)
-    
-    return new_org
+    await db.refresh(new_organization)
+
+    return new_organization
 
 @router.get("/{organization_id}", response_model=OrganizationResponse)
 async def get_organization(
@@ -54,19 +54,19 @@ async def get_organization(
 ):
     """Get organization details"""
     await get_current_user(token, db)
-    
-    result = await db.execute(
+
+    organization_query = await db.execute(
         select(Organization).where(Organization.id == organization_id)
     )
-    org = result.scalar_one_or_none()
-    
-    if not org:
+    organization = organization_query.scalar_one_or_none()
+
+    if not organization:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Organization not found"
         )
-    
-    return org
+
+    return organization
 
 @router.get("", response_model=List[OrganizationResponse])
 async def list_organizations(
@@ -77,15 +77,15 @@ async def list_organizations(
 ):
     """List all organizations for current user"""
     current_user = await get_current_user(token, db)
-    
+
     query = select(Organization).where(
         Organization.members.any(User.id == current_user.id)
     ).offset(skip).limit(limit)
-    
-    result = await db.execute(query)
-    orgs = result.scalars().all()
-    
-    return orgs
+
+    organizations_query = await db.execute(query)
+    organizations = organizations_query.scalars().all()
+
+    return organizations
 
 @router.get("/{organization_id}/members", response_model=List[UserResponse])
 async def get_organization_members(
@@ -97,19 +97,19 @@ async def get_organization_members(
 ):
     """Get organization members"""
     await get_current_user(token, db)
-    
-    result = await db.execute(
+
+    organization_query = await db.execute(
         select(Organization).where(Organization.id == organization_id)
     )
-    org = result.scalar_one_or_none()
-    
-    if not org:
+    organization = organization_query.scalar_one_or_none()
+
+    if not organization:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Organization not found"
         )
-    
-    return org.members[skip:skip+limit]
+
+    return organization.members[skip:skip+limit]
 
 @router.post("/{organization_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def add_member(
@@ -121,31 +121,31 @@ async def add_member(
 ):
     """Add member to organization"""
     current_user = await get_current_user(token, db)
-    
-    org_result = await db.execute(
+
+    organization_query = await db.execute(
         select(Organization).where(Organization.id == organization_id)
     )
-    org = org_result.scalar_one_or_none()
-    
-    if not org:
+    organization = organization_query.scalar_one_or_none()
+
+    if not organization:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Organization not found"
         )
-    
-    user_result = await db.execute(
+
+    user_query = await db.execute(
         select(User).where(User.id == user_id)
     )
-    user = user_result.scalar_one_or_none()
-    
+    user = user_query.scalar_one_or_none()
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
-    
-    if user not in org.members:
-        org.members.append(user)
+
+    if user not in organization.members:
+        organization.members.append(user)
         await db.commit()
 
 @router.delete("/{organization_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -157,23 +157,23 @@ async def remove_member(
 ):
     """Remove member from organization"""
     current_user = await get_current_user(token, db)
-    
-    org_result = await db.execute(
+
+    organization_query = await db.execute(
         select(Organization).where(Organization.id == organization_id)
     )
-    org = org_result.scalar_one_or_none()
-    
-    if not org:
+    organization = organization_query.scalar_one_or_none()
+
+    if not organization:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Organization not found"
         )
-    
-    user_result = await db.execute(
+
+    user_query = await db.execute(
         select(User).where(User.id == user_id)
     )
-    user = user_result.scalar_one_or_none()
-    
-    if user and user in org.members:
-        org.members.remove(user)
+    user = user_query.scalar_one_or_none()
+
+    if user and user in organization.members:
+        organization.members.remove(user)
         await db.commit()

@@ -19,12 +19,12 @@ async def create_project(
 ):
     """Create new project in organization"""
     current_user = await get_current_user(token, db)
-    
+
     # Verify organization exists and user has access
-    org_result = await db.execute(
+    organization_query = await db.execute(
         select(Organization).where(Organization.id == project_data.organization_id)
     )
-    organization = org_result.scalar_one_or_none()
+    organization = organization_query.scalar_one_or_none()
     if not organization:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -56,18 +56,18 @@ async def get_project(
 ):
     """Get project details"""
     await get_current_user(token, db)
-    
-    result = await db.execute(
+
+    project_query = await db.execute(
         select(Project).where(Project.id == project_id)
     )
-    project = result.scalar_one_or_none()
-    
+    project = project_query.scalar_one_or_none()
+
     if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Project not found"
         )
-    
+
     return project
 
 @router.get("", response_model=List[ProjectResponse])
@@ -86,11 +86,11 @@ async def list_projects(
     
     if status:
         query = query.where(Project.status == status)
-    
+
     query = query.order_by(desc(Project.created_at)).offset(skip).limit(limit)
-    result = await db.execute(query)
-    projects = result.scalars().all()
-    
+    projects_query = await db.execute(query)
+    projects = projects_query.scalars().all()
+
     return projects
 
 @router.patch("/{project_id}", response_model=ProjectResponse)
@@ -102,12 +102,12 @@ async def update_project(
 ):
     """Update project"""
     current_user = await get_current_user(token, db)
-    
-    result = await db.execute(
+
+    project_query = await db.execute(
         select(Project).where(Project.id == project_id)
     )
-    project = result.scalar_one_or_none()
-    
+    project = project_query.scalar_one_or_none()
+
     if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -135,18 +135,18 @@ async def delete_project(
 ):
     """Delete project (soft delete via archiving)"""
     current_user = await get_current_user(token, db)
-    
-    result = await db.execute(
+
+    project_query = await db.execute(
         select(Project).where(Project.id == project_id)
     )
-    project = result.scalar_one_or_none()
-    
+    project = project_query.scalar_one_or_none()
+
     if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Project not found"
         )
-    
+
     # Archive instead of delete
     project.status = 'archived'
     await db.commit()

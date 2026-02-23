@@ -11,8 +11,8 @@ from ..routers.auth import oauth2_scheme, get_current_user
 router = APIRouter(prefix="/api/search", tags=["search"])
 
 class SearchResult:
-    def __init__(self, type_: str, id: int, title: str, description: str, relevance: float):
-        self.type = type_
+    def __init__(self, search_type: str, id: int, title: str, description: str, relevance: float):
+        self.type = search_type
         self.id = id
         self.title = title
         self.description = description
@@ -35,7 +35,7 @@ async def global_search(
     
     # Search projects
     if not type_filter or type_filter == "project":
-        projects_result = await db.execute(
+        projects_query = await db.execute(
             select(Project).where(
                 (Project.organization_id == organization_id) &
                 (or_(
@@ -44,7 +44,7 @@ async def global_search(
                 ))
             ).limit(limit)
         )
-        for project in projects_result.scalars():
+        for project in projects_query.scalars():
             results.append({
                 "type": "project",
                 "id": project.id,
@@ -52,10 +52,10 @@ async def global_search(
                 "description": project.description,
                 "url": f"/projects/{project.id}"
             })
-    
+
     # Search tasks
     if not type_filter or type_filter == "task":
-        tasks_result = await db.execute(
+        tasks_query = await db.execute(
             select(Task).where(
                 (Task.project_id.in_(
                     select(Project.id).where(Project.organization_id == organization_id)
@@ -66,7 +66,7 @@ async def global_search(
                 ))
             ).limit(limit)
         )
-        for task in tasks_result.scalars():
+        for task in tasks_query.scalars():
             results.append({
                 "type": "task",
                 "id": task.id,
@@ -74,10 +74,10 @@ async def global_search(
                 "description": task.description,
                 "url": f"/tasks/{task.id}"
             })
-    
+
     # Search users
     if not type_filter or type_filter == "user":
-        users_result = await db.execute(
+        users_query = await db.execute(
             select(User).where(
                 or_(
                     User.username.ilike(f"%{q}%"),
@@ -86,7 +86,7 @@ async def global_search(
                 )
             ).limit(limit)
         )
-        for user in users_result.scalars():
+        for user in users_query.scalars():
             results.append({
                 "type": "user",
                 "id": user.id,
@@ -108,8 +108,8 @@ async def search_projects(
 ):
     """Search projects"""
     await get_current_user(token, db)
-    
-    result = await db.execute(
+
+    projects_query = await db.execute(
         select(Project).where(
             (Project.organization_id == organization_id) &
             (or_(
@@ -118,8 +118,8 @@ async def search_projects(
             ))
         ).order_by(desc(Project.created_at)).offset(skip).limit(limit)
     )
-    
-    return result.scalars().all()
+
+    return projects_query.scalars().all()
 
 @router.get("/tasks")
 async def search_tasks(
@@ -132,8 +132,8 @@ async def search_tasks(
 ):
     """Search tasks"""
     await get_current_user(token, db)
-    
-    result = await db.execute(
+
+    tasks_query = await db.execute(
         select(Task).where(
             (Task.project_id.in_(
                 select(Project.id).where(Project.organization_id == organization_id)
@@ -144,5 +144,5 @@ async def search_tasks(
             ))
         ).order_by(desc(Task.created_at)).offset(skip).limit(limit)
     )
-    
-    return result.scalars().all()
+
+    return tasks_query.scalars().all()

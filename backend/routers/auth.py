@@ -27,13 +27,13 @@ async def register_user(
 ):
     """Register new user"""
     # Check if user exists
-    result = await db.execute(
+    existing_user_query = await db.execute(
         select(User).where(
             (User.email == user_data.email) | (User.username == user_data.username)
         )
     )
-    existing_user = result.scalar_one_or_none()
-    
+    existing_user = existing_user_query.scalar_one_or_none()
+
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -62,11 +62,11 @@ async def login(
 ):
     """Login and get access token"""
     # Find user
-    result = await db.execute(
+    user_query = await db.execute(
         select(User).where(User.username == form_data.username)
     )
-    user = result.scalar_one_or_none()
-    
+    user = user_query.scalar_one_or_none()
+
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -96,30 +96,30 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db)
 ):
     """Get current authenticated user"""
-    payload = decode_token(token)
-    if payload is None:
+    token_payload = decode_token(token)
+    if token_payload is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
-    username: str = payload.get("sub")
+
+    username: str = token_payload.get("sub")
     if username is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials"
         )
-    
-    result = await db.execute(select(User).where(User.username == username))
-    user = result.scalar_one_or_none()
-    
+
+    user_query = await db.execute(select(User).where(User.username == username))
+    user = user_query.scalar_one_or_none()
+
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found"
         )
-    
+
     return user
 
 @router.post("/api-keys", response_model=APIKeyResponse, status_code=status.HTTP_201_CREATED)
@@ -156,10 +156,10 @@ async def list_api_keys(
 ):
     """List all API keys for current user"""
     user = await get_current_user(token, db)
-    
-    result = await db.execute(
+
+    api_keys_query = await db.execute(
         select(APIKey).where(APIKey.user_id == user.id)
     )
-    api_keys = result.scalars().all()
-    
+    api_keys = api_keys_query.scalars().all()
+
     return api_keys

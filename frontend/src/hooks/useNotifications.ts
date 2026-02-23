@@ -21,7 +21,7 @@ export function useNotifications() {
     try {
       const data = await notificationsApi.getNotifications(token)
       setNotifications(data)
-      setUnreadCount(data.filter((n) => !n.is_read).length)
+      setUnreadCount(data.filter((notification) => !notification.is_read).length)
     } catch (error) {
       console.error('Error fetching notifications:', error)
     }
@@ -40,8 +40,8 @@ export function useNotifications() {
 
       await notificationsApi.markAsRead(token, notificationId)
       setNotifications((prev) =>
-        prev.map((n) =>
-          n.id === notificationId ? { ...n, is_read: true } : n
+        prev.map((notification) =>
+          notification.id === notificationId ? { ...notification, is_read: true } : notification
         )
       )
       setUnreadCount((prev) => Math.max(0, prev - 1))

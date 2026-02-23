@@ -57,18 +57,18 @@ async def get_task(
 ):
     """Get task details"""
     await get_current_user(token, db)
-    
-    result = await db.execute(
+
+    task_query = await db.execute(
         select(Task).where(Task.id == task_id)
     )
-    task = result.scalar_one_or_none()
-    
+    task = task_query.scalar_one_or_none()
+
     if not task:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Task not found"
         )
-    
+
     return task
 
 @router.get("", response_model=List[TaskResponse])
@@ -95,11 +95,11 @@ async def list_tasks(
     
     if priority:
         query = query.where(Task.priority == priority)
-    
+
     query = query.order_by(desc(Task.created_at)).offset(skip).limit(limit)
-    result = await db.execute(query)
-    tasks = result.scalars().all()
-    
+    tasks_query = await db.execute(query)
+    tasks = tasks_query.scalars().all()
+
     return tasks
 
 @router.patch("/{task_id}", response_model=TaskResponse)
@@ -111,12 +111,12 @@ async def update_task(
 ):
     """Update task"""
     current_user = await get_current_user(token, db)
-    
-    result = await db.execute(
+
+    task_query = await db.execute(
         select(Task).where(Task.id == task_id)
     )
-    task = result.scalar_one_or_none()
-    
+    task = task_query.scalar_one_or_none()
+
     if not task:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -153,18 +153,18 @@ async def delete_task(
 ):
     """Delete task"""
     current_user = await get_current_user(token, db)
-    
-    result = await db.execute(
+
+    task_query = await db.execute(
         select(Task).where(Task.id == task_id)
     )
-    task = result.scalar_one_or_none()
-    
+    task = task_query.scalar_one_or_none()
+
     if not task:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Task not found"
         )
-    
+
     await db.delete(task)
     await db.commit()
 
@@ -216,8 +216,8 @@ async def get_comments(
     query = select(Comment).where(
         Comment.task_id == task_id
     ).order_by(desc(Comment.created_at)).offset(skip).limit(limit)
-    
-    result = await db.execute(query)
-    comments = result.scalars().all()
-    
+
+    comments_query = await db.execute(query)
+    comments = comments_query.scalars().all()
+
     return comments
