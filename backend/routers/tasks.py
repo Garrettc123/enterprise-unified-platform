@@ -8,6 +8,7 @@ from ..database import get_db
 from ..models import Task, Project, Comment, User
 from ..schemas import TaskCreate, TaskResponse, CommentCreate, CommentResponse
 from ..routers.auth import oauth2_scheme, get_current_user
+from ..crud_helpers import get_entity_by_id, create_entity, update_entity_fields, list_entities_with_filters
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
@@ -19,19 +20,11 @@ async def create_task(
 ):
     """Create new task in project"""
     current_user = await get_current_user(token, db)
-    
-    # Verify project exists
-    project_result = await db.execute(
-        select(Project).where(Project.id == task_data.project_id)
-    )
-    project = project_result.scalar_one_or_none()
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found"
-        )
-    
-    # Create task
+
+    # Verify project exists using helper
+    project = await get_entity_by_id(db, Project, task_data.project_id, "Project not found")
+
+    # Create task using helper
     new_task = Task(
         title=task_data.title,
         description=task_data.description,
@@ -42,12 +35,8 @@ async def create_task(
         priority=task_data.priority,
         story_points=task_data.story_points
     )
-    
-    db.add(new_task)
-    await db.commit()
-    await db.refresh(new_task)
-    
-    return new_task
+
+    return await create_entity(db, new_task)
 
 @router.get("/{task_id}", response_model=TaskResponse)
 async def get_task(
@@ -57,19 +46,7 @@ async def get_task(
 ):
     """Get task details"""
     await get_current_user(token, db)
-    
-    result = await db.execute(
-        select(Task).where(Task.id == task_id)
-    )
-    task = result.scalar_one_or_none()
-    
-    if not task:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Task not found"
-        )
-    
-    return task
+    return await get_entity_by_id(db, Task, task_id, "Task not found")
 
 @router.get("", response_model=List[TaskResponse])
 async def list_tasks(
@@ -84,23 +61,19 @@ async def list_tasks(
 ):
     """List tasks with advanced filtering"""
     await get_current_user(token, db)
-    
-    query = select(Task).where(Task.project_id == project_id)
-    
-    if status:
-        query = query.where(Task.status == status)
-    
-    if assigned_to:
-        query = query.where(Task.assigned_to == assigned_to)
-    
-    if priority:
-        query = query.where(Task.priority == priority)
-    
-    query = query.order_by(desc(Task.created_at)).offset(skip).limit(limit)
-    result = await db.execute(query)
-    tasks = result.scalars().all()
-    
-    return tasks
+
+    return await list_entities_with_filters(
+        db,
+        Task,
+        filters={
+            "project_id": project_id,
+            "status": status,
+            "assigned_to": assigned_to,
+            "priority": priority
+        },
+        skip=skip,
+        limit=limit
+    )
 
 @router.patch("/{task_id}", response_model=TaskResponse)
 async def update_task(

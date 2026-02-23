@@ -7,6 +7,7 @@ from dataclasses import dataclass, asdict
 from datetime import datetime
 from enum import Enum
 import json
+from sync_base import BaseConnector, BaseSyncManager
 
 logger = logging.getLogger(__name__)
 
@@ -50,27 +51,17 @@ class SyncRecord:
     error: Optional[str] = None
 
 
-class DatabaseConnector:
+class DatabaseConnector(BaseConnector[DatabaseConfig]):
     """Abstract database connector."""
 
     def __init__(self, config: DatabaseConfig):
-        self.config = config
-        self.connected = False
-        self.last_sync: Optional[datetime] = None
+        super().__init__(config)
 
-    async def connect(self) -> bool:
-        """Connect to database."""
-        logger.info(f"[{self.config.name}] Connecting to {self.config.db_type.value}...")
-        await asyncio.sleep(0.2)  # Simulate connection
-        self.connected = True
-        logger.info(f"[{self.config.name}] Connected successfully")
-        return True
+    def _get_name(self) -> str:
+        return self.config.name
 
-    async def disconnect(self) -> bool:
-        """Disconnect from database."""
-        self.connected = False
-        logger.info(f"[{self.config.name}] Disconnected")
-        return True
+    def _get_type(self) -> str:
+        return self.config.db_type.value
 
     async def fetch_changes(self, since: Optional[datetime] = None) -> List[Dict[str, Any]]:
         """Fetch changes from database."""

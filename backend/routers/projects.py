@@ -8,6 +8,7 @@ from ..database import get_db
 from ..models import Project, Organization, User, Task
 from ..schemas import ProjectCreate, ProjectResponse, TaskCreate, TaskResponse
 from ..routers.auth import oauth2_scheme, get_current_user
+from ..crud_helpers import get_entity_by_id, create_entity, update_entity_fields, list_entities_with_filters
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -19,19 +20,13 @@ async def create_project(
 ):
     """Create new project in organization"""
     current_user = await get_current_user(token, db)
-    
-    # Verify organization exists and user has access
-    org_result = await db.execute(
-        select(Organization).where(Organization.id == project_data.organization_id)
+
+    # Verify organization exists using helper
+    organization = await get_entity_by_id(
+        db, Organization, project_data.organization_id, "Organization not found"
     )
-    organization = org_result.scalar_one_or_none()
-    if not organization:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Organization not found"
-        )
-    
-    # Create project
+
+    # Create project using helper
     new_project = Project(
         name=project_data.name,
         description=project_data.description,
@@ -41,12 +36,8 @@ async def create_project(
         priority=project_data.priority,
         budget=project_data.budget
     )
-    
-    db.add(new_project)
-    await db.commit()
-    await db.refresh(new_project)
-    
-    return new_project
+
+    return await create_entity(db, new_project)
 
 @router.get("/{project_id}", response_model=ProjectResponse)
 async def get_project(
@@ -56,19 +47,7 @@ async def get_project(
 ):
     """Get project details"""
     await get_current_user(token, db)
-    
-    result = await db.execute(
-        select(Project).where(Project.id == project_id)
-    )
-    project = result.scalar_one_or_none()
-    
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found"
-        )
-    
-    return project
+    return await get_entity_by_id(db, Project, project_id, "Project not found")
 
 @router.get("", response_model=List[ProjectResponse])
 async def list_projects(
@@ -81,17 +60,14 @@ async def list_projects(
 ):
     """List projects with filtering"""
     await get_current_user(token, db)
-    
-    query = select(Project).where(Project.organization_id == organization_id)
-    
-    if status:
-        query = query.where(Project.status == status)
-    
-    query = query.order_by(desc(Project.created_at)).offset(skip).limit(limit)
-    result = await db.execute(query)
-    projects = result.scalars().all()
-    
-    return projects
+
+    return await list_entities_with_filters(
+        db,
+        Project,
+        filters={"organization_id": organization_id, "status": status},
+        skip=skip,
+        limit=limit
+    )
 
 @router.patch("/{project_id}", response_model=ProjectResponse)
 async def update_project(
@@ -102,30 +78,19 @@ async def update_project(
 ):
     """Update project"""
     current_user = await get_current_user(token, db)
-    
-    result = await db.execute(
-        select(Project).where(Project.id == project_id)
-    )
-    project = result.scalar_one_or_none()
-    
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found"
-        )
-    
-    # Update fields
-    project.name = project_data.name or project.name
-    project.description = project_data.description or project.description
-    project.status = project_data.status or project.status
-    project.priority = project_data.priority or project.priority
-    project.budget = project_data.budget or project.budget
-    project.updated_at = datetime.utcnow()
-    
-    await db.commit()
-    await db.refresh(project)
-    
-    return project
+    project = await get_entity_by_id(db, Project, project_id, "Project not found")
+
+    # Update fields using helper
+    update_data = {
+        "name": project_data.name,
+        "description": project_data.description,
+        "status": project_data.status,
+        "priority": project_data.priority,
+        "budget": project_data.budget,
+        "updated_at": datetime.utcnow()
+    }
+
+    return await update_entity_fields(db, project, update_data)
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_project(
@@ -135,18 +100,7 @@ async def delete_project(
 ):
     """Delete project (soft delete via archiving)"""
     current_user = await get_current_user(token, db)
-    
-    result = await db.execute(
-        select(Project).where(Project.id == project_id)
-    )
-    project = result.scalar_one_or_none()
-    
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found"
-        )
-    
+    project = await get_entity_by_id(db, Project, project_id, "Project not found")
+
     # Archive instead of delete
-    project.status = 'archived'
-    await db.commit()
+    await update_entity_fields(db, project, {"status": "archived"})

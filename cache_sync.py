@@ -6,6 +6,7 @@ from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from sync_base import BaseConnector, BaseSyncManager
 
 logger = logging.getLogger(__name__)
 
@@ -27,33 +28,30 @@ class CacheConfig:
     sync_enabled: bool = True
 
 
-class CacheConnector:
+class CacheConnector(BaseConnector[CacheConfig]):
     """Base cache connector."""
 
     def __init__(self, config: CacheConfig):
-        self.config = config
-        self.connected = False
-        self.last_sync: Optional[datetime] = None
+        super().__init__(config)
         self.keys_synced = 0
 
-    async def connect(self) -> bool:
-        """Connect to cache."""
-        logger.info(f"[{self.config.name}] Connecting to {self.config.cache_type.value}...")
-        await asyncio.sleep(0.1)
-        self.connected = True
-        return True
+    def _get_name(self) -> str:
+        return self.config.name
+
+    def _get_type(self) -> str:
+        return self.config.cache_type.value
 
     async def sync_cache(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Sync cache entries."""
         if not self.connected:
             raise Exception("Not connected")
-        
+
         logger.info(f"[{self.config.name}] Syncing {len(data)} cache entries...")
         await asyncio.sleep(0.05)
-        
+
         self.last_sync = datetime.utcnow()
         self.keys_synced += len(data)
-        
+
         return {
             "cache": self.config.name,
             "keys_synced": len(data),
@@ -72,65 +70,41 @@ class MemcachedConnector(CacheConnector):
     pass
 
 
-class CacheSyncManager:
+class CacheSyncManager(BaseSyncManager[CacheConfig]):
     """Manages cache synchronization."""
 
     def __init__(self):
-        self.connectors: Dict[str, CacheConnector] = {}
-        self.sync_history: List[Dict[str, Any]] = []
-        self.is_running = False
-
-    def register_cache(self, config: CacheConfig) -> None:
-        """Register cache."""
-        connector_map = {
+        super().__init__()
+        self._connector_map = {
             CacheType.REDIS: RedisConnector,
             CacheType.MEMCACHED: MemcachedConnector,
         }
 
-        connector_class = connector_map[config.cache_type]
-        self.connectors[config.name] = connector_class(config)
-        logger.info(f"Registered cache: {config.name} ({config.cache_type.value})")
+    def _get_manager_name(self) -> str:
+        return "Cache Sync Manager"
 
-    async def run_continuous_sync(self, check_interval: int = 20) -> None:
-        """Run continuous cache sync."""
-        self.is_running = True
-        logger.info("\n" + "="*80)
-        logger.info("CACHE SYNC MANAGER STARTED")
-        logger.info("="*80 + "\n")
+    def _get_connector_class(self, config: CacheConfig) -> type:
+        return self._connector_map[config.cache_type]
 
-        for connector in self.connectors.values():
-            await connector.connect()
+    def _get_config_name(self, config: CacheConfig) -> str:
+        return config.name
 
-        try:
-            iteration = 0
-            while self.is_running:
-                iteration += 1
-                logger.info(f"[Cycle {iteration}] Syncing cache entries...")
-                
-                sample_data = {f"key_{i}": f"value_{i}" for i in range(10)}
+    async def _sync_iteration(self, iteration: int) -> List[Dict[str, Any]]:
+        """Execute one cache sync iteration."""
+        logger.info(f"[Cycle {iteration}] Syncing cache entries...")
 
-                tasks = [
-                    connector.sync_cache(sample_data)
-                    for connector in self.connectors.values()
-                ]
-                results = await asyncio.gather(*tasks)
+        sample_data = {f"key_{i}": f"value_{i}" for i in range(10)}
 
-                for result in results:
-                    self.sync_history.append(result)
-                    logger.info(f"✓ {result['cache']}: {result['keys_synced']} keys synced")
+        tasks = [
+            connector.sync_cache(sample_data)
+            for connector in self.connectors.values()
+        ]
+        return await asyncio.gather(*tasks)
 
-                await asyncio.sleep(check_interval)
+    def _log_result(self, result: Dict[str, Any]) -> None:
+        """Log cache sync result."""
+        logger.info(f"✓ {result['cache']}: {result['keys_synced']} keys synced")
 
-        except KeyboardInterrupt:
-            logger.info("Cache sync stopped.")
-        finally:
-            self.is_running = False
-            logger.info("Cache Sync Manager Stopped")
-
-    def get_status(self) -> Dict[str, Any]:
-        """Get status."""
-        return {
-            "running": self.is_running,
-            "cache_providers": list(self.connectors.keys()),
-            "total_syncs": len(self.sync_history)
-        }
+    def register_cache(self, config: CacheConfig) -> None:
+        """Register cache (legacy method for backwards compatibility)."""
+        self.register_connector(config)
