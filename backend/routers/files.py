@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from typing import List
 import os
-import shutil
+import aiofiles
 from datetime import datetime
 
 from ..database import get_db
@@ -25,7 +25,7 @@ class FileResponse(BaseModel):
     task_id: int
     uploaded_by: int
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -36,9 +36,9 @@ async def upload_file(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Upload file attachment to task"""
+    """Upload file attachment to task - optimized with async I/O"""
     current_user = await get_current_user(token, db)
-    
+
     # Verify task exists
     task_result = await db.execute(
         select(Task).where(Task.id == task_id)
@@ -49,23 +49,26 @@ async def upload_file(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Task not found"
         )
-    
-    # Validate file
+
+    # Validate file size
     if file.size and file.size > 50 * 1024 * 1024:  # 50MB limit
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="File size exceeds 50MB limit"
         )
-    
-    # Save file
+
+    # Save file asynchronously using aiofiles
     file_path = os.path.join(UPLOAD_DIR, f"{task_id}_{file.filename}")
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-    
+    async with aiofiles.open(file_path, "wb") as buffer:
+        # Read file in chunks to avoid memory issues with large files
+        chunk_size = 1024 * 1024  # 1MB chunks
+        while content := await file.read(chunk_size):
+            await buffer.write(content)
+
     # Get file size
     file_size = os.path.getsize(file_path)
     file_type = file.content_type or "application/octet-stream"
-    
+
     # Create attachment record
     attachment = Attachment(
         filename=file.filename,
@@ -75,11 +78,11 @@ async def upload_file(
         task_id=task_id,
         uploaded_by=current_user.id
     )
-    
+
     db.add(attachment)
     await db.commit()
     await db.refresh(attachment)
-    
+
     return attachment
 
 @router.get("/{attachment_id}")

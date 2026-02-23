@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
+from sqlalchemy.orm import selectinload
 from typing import List
 
 from ..database import get_db
@@ -52,20 +53,24 @@ async def get_organization(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get organization details"""
+    """Get organization details - optimized with eager loading"""
     await get_current_user(token, db)
-    
+
+    # Optimized: Use selectinload to prevent N+1 queries when accessing members/projects
     result = await db.execute(
-        select(Organization).where(Organization.id == organization_id)
+        select(Organization).options(
+            selectinload(Organization.members),
+            selectinload(Organization.projects)
+        ).where(Organization.id == organization_id)
     )
     org = result.scalar_one_or_none()
-    
+
     if not org:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Organization not found"
         )
-    
+
     return org
 
 @router.get("", response_model=List[OrganizationResponse])
@@ -75,16 +80,20 @@ async def list_organizations(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ):
-    """List all organizations for current user"""
+    """List all organizations for current user - optimized with eager loading"""
     current_user = await get_current_user(token, db)
-    
-    query = select(Organization).where(
+
+    # Optimized: Use selectinload to prevent N+1 queries
+    query = select(Organization).options(
+        selectinload(Organization.members),
+        selectinload(Organization.projects)
+    ).where(
         Organization.members.any(User.id == current_user.id)
     ).offset(skip).limit(limit)
-    
+
     result = await db.execute(query)
     orgs = result.scalars().all()
-    
+
     return orgs
 
 @router.get("/{organization_id}/members", response_model=List[UserResponse])

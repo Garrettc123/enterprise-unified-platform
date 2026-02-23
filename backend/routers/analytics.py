@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, case
+from sqlalchemy.orm import selectinload
 from datetime import datetime, timedelta
 from typing import Dict, List
 
@@ -16,54 +17,38 @@ async def get_dashboard_overview(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ) -> Dict:
-    """Get dashboard overview metrics"""
+    """Get dashboard overview metrics - optimized single query"""
     current_user = await get_current_user(token, db)
-    
-    # Get project stats
-    projects_result = await db.execute(
-        select(func.count(Project.id)).where(
+
+    # Optimized: Combine all metrics into single query with aggregations
+    result = await db.execute(
+        select(
+            func.count(Project.id).label('total_projects'),
+            func.count(case((Project.status == 'active', 1))).label('active_projects'),
+            func.count(Task.id).label('total_tasks'),
+            func.count(case((Task.status == 'completed', 1))).label('completed_tasks')
+        ).outerjoin(
+            Task, Task.project_id == Project.id
+        ).where(
             Project.organization_id == organization_id
         )
     )
-    total_projects = projects_result.scalar() or 0
-    
-    # Get active projects
-    active_projects_result = await db.execute(
-        select(func.count(Project.id)).where(
-            (Project.organization_id == organization_id) &
-            (Project.status == 'active')
-        )
-    )
-    active_projects = active_projects_result.scalar() or 0
-    
-    # Get tasks stats
-    tasks_result = await db.execute(
-        select(func.count(Task.id)).where(
-            Task.project_id.in_(
-                select(Project.id).where(Project.organization_id == organization_id)
-            )
-        )
-    )
-    total_tasks = tasks_result.scalar() or 0
-    
-    # Get completed tasks
-    completed_tasks_result = await db.execute(
-        select(func.count(Task.id)).where(
-            (Task.project_id.in_(
-                select(Project.id).where(Project.organization_id == organization_id)
-            )) &
-            (Task.status == 'completed')
-        )
-    )
-    completed_tasks = completed_tasks_result.scalar() or 0
-    
-    # Get team members
+
+    metrics = result.one()
+    total_projects = metrics.total_projects or 0
+    active_projects = metrics.active_projects or 0
+    total_tasks = metrics.total_tasks or 0
+    completed_tasks = metrics.completed_tasks or 0
+
+    # Get team size with eager loading to avoid N+1
     org_result = await db.execute(
-        select(Organization).where(Organization.id == organization_id)
+        select(Organization).options(
+            selectinload(Organization.members)
+        ).where(Organization.id == organization_id)
     )
     org = org_result.scalar_one_or_none()
     team_size = len(org.members) if org else 0
-    
+
     return {
         "total_projects": total_projects,
         "active_projects": active_projects,
@@ -81,7 +66,7 @@ async def get_project_status_breakdown(
 ) -> List[Dict]:
     """Get project status breakdown"""
     await get_current_user(token, db)
-    
+
     result = await db.execute(
         select(
             Project.status,
@@ -90,15 +75,9 @@ async def get_project_status_breakdown(
             Project.organization_id == organization_id
         ).group_by(Project.status)
     )
-    
-    data = []
-    for row in result.all():
-        data.append({
-            "status": row[0],
-            "count": row[1]
-        })
-    
-    return data
+
+    # Optimized: Use list comprehension instead of loop
+    return [{"status": row[0], "count": row[1]} for row in result.all()]
 
 @router.get("/tasks/priority-distribution")
 async def get_task_priority_distribution(
@@ -108,7 +87,7 @@ async def get_task_priority_distribution(
 ) -> List[Dict]:
     """Get task priority distribution"""
     await get_current_user(token, db)
-    
+
     result = await db.execute(
         select(
             Task.priority,
@@ -119,15 +98,9 @@ async def get_task_priority_distribution(
             )
         ).group_by(Task.priority)
     )
-    
-    data = []
-    for row in result.all():
-        data.append({
-            "priority": row[0],
-            "count": row[1]
-        })
-    
-    return data
+
+    # Optimized: Use list comprehension instead of loop
+    return [{"priority": row[0], "count": row[1]} for row in result.all()]
 
 @router.get("/tasks/status-trend")
 async def get_task_status_trend(
@@ -138,9 +111,9 @@ async def get_task_status_trend(
 ) -> List[Dict]:
     """Get task completion trend over time"""
     await get_current_user(token, db)
-    
+
     cutoff_date = datetime.utcnow() - timedelta(days=days)
-    
+
     result = await db.execute(
         select(
             func.date(Task.completed_at).label('date'),
@@ -153,15 +126,12 @@ async def get_task_status_trend(
             (Task.status == 'completed')
         ).group_by(func.date(Task.completed_at)).order_by('date')
     )
-    
-    data = []
-    for row in result.all():
-        data.append({
-            "date": str(row[0]) if row[0] else None,
-            "completed_count": row[1]
-        })
-    
-    return data
+
+    # Optimized: Use list comprehension instead of loop
+    return [
+        {"date": str(row[0]) if row[0] else None, "completed_count": row[1]}
+        for row in result.all()
+    ]
 
 @router.get("/team/workload")
 async def get_team_workload(
@@ -171,7 +141,7 @@ async def get_team_workload(
 ) -> List[Dict]:
     """Get team member workload"""
     await get_current_user(token, db)
-    
+
     result = await db.execute(
         select(
             User.username,
@@ -184,12 +154,6 @@ async def get_team_workload(
             )
         ).group_by(User.id, User.username)
     )
-    
-    data = []
-    for row in result.all():
-        data.append({
-            "user": row[0],
-            "assigned_tasks": row[1]
-        })
-    
-    return data
+
+    # Optimized: Use list comprehension instead of loop
+    return [{"user": row[0], "assigned_tasks": row[1]} for row in result.all()]

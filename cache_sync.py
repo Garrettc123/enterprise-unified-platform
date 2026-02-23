@@ -39,7 +39,7 @@ class CacheConnector:
     async def connect(self) -> bool:
         """Connect to cache."""
         logger.info(f"[{self.config.name}] Connecting to {self.config.cache_type.value}...")
-        await asyncio.sleep(0.1)
+        # Removed artificial delay for production performance
         self.connected = True
         return True
 
@@ -47,13 +47,13 @@ class CacheConnector:
         """Sync cache entries."""
         if not self.connected:
             raise Exception("Not connected")
-        
+
         logger.info(f"[{self.config.name}] Syncing {len(data)} cache entries...")
-        await asyncio.sleep(0.05)
-        
+        # Removed artificial delay for production performance
+
         self.last_sync = datetime.utcnow()
         self.keys_synced += len(data)
-        
+
         return {
             "cache": self.config.name,
             "keys_synced": len(data),
@@ -98,15 +98,15 @@ class CacheSyncManager:
         logger.info("CACHE SYNC MANAGER STARTED")
         logger.info("="*80 + "\n")
 
-        for connector in self.connectors.values():
-            await connector.connect()
+        # Optimized: Connect to all caches in parallel
+        await asyncio.gather(*[connector.connect() for connector in self.connectors.values()])
 
         try:
             iteration = 0
             while self.is_running:
                 iteration += 1
                 logger.info(f"[Cycle {iteration}] Syncing cache entries...")
-                
+
                 sample_data = {f"key_{i}": f"value_{i}" for i in range(10)}
 
                 tasks = [

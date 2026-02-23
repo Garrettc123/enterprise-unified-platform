@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, desc
 from typing import List
+import asyncio
 
 from ..database import get_db
 from ..models import Project, Task, User, Organization
@@ -28,73 +29,93 @@ async def global_search(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ) -> List[dict]:
-    """Global search across projects, tasks, and users"""
+    """Global search across projects, tasks, and users - optimized with parallel queries"""
     await get_current_user(token, db)
-    
+
     results = []
-    
-    # Search projects
-    if not type_filter or type_filter == "project":
-        projects_result = await db.execute(
-            select(Project).where(
-                (Project.organization_id == organization_id) &
-                (or_(
-                    Project.name.ilike(f"%{q}%"),
-                    Project.description.ilike(f"%{q}%")
-                ))
-            ).limit(limit)
-        )
-        for project in projects_result.scalars():
-            results.append({
-                "type": "project",
-                "id": project.id,
-                "title": project.name,
-                "description": project.description,
-                "url": f"/projects/{project.id}"
-            })
-    
-    # Search tasks
-    if not type_filter or type_filter == "task":
-        tasks_result = await db.execute(
-            select(Task).where(
-                (Task.project_id.in_(
-                    select(Project.id).where(Project.organization_id == organization_id)
-                )) &
-                (or_(
-                    Task.title.ilike(f"%{q}%"),
-                    Task.description.ilike(f"%{q}%")
-                ))
-            ).limit(limit)
-        )
-        for task in tasks_result.scalars():
-            results.append({
-                "type": "task",
-                "id": task.id,
-                "title": task.title,
-                "description": task.description,
-                "url": f"/tasks/{task.id}"
-            })
-    
-    # Search users
-    if not type_filter or type_filter == "user":
-        users_result = await db.execute(
-            select(User).where(
-                or_(
-                    User.username.ilike(f"%{q}%"),
-                    User.full_name.ilike(f"%{q}%"),
-                    User.email.ilike(f"%{q}%")
-                )
-            ).limit(limit)
-        )
-        for user in users_result.scalars():
-            results.append({
-                "type": "user",
-                "id": user.id,
-                "title": user.full_name or user.username,
-                "description": user.email,
-                "url": f"/users/{user.id}"
-            })
-    
+
+    # Optimized: Run all queries in parallel using asyncio.gather
+    async def search_projects():
+        if not type_filter or type_filter == "project":
+            projects_result = await db.execute(
+                select(Project).where(
+                    (Project.organization_id == organization_id) &
+                    (or_(
+                        Project.name.ilike(f"%{q}%"),
+                        Project.description.ilike(f"%{q}%")
+                    ))
+                ).limit(limit)
+            )
+            return [
+                {
+                    "type": "project",
+                    "id": project.id,
+                    "title": project.name,
+                    "description": project.description,
+                    "url": f"/projects/{project.id}"
+                }
+                for project in projects_result.scalars()
+            ]
+        return []
+
+    async def search_tasks():
+        if not type_filter or type_filter == "task":
+            tasks_result = await db.execute(
+                select(Task).where(
+                    (Task.project_id.in_(
+                        select(Project.id).where(Project.organization_id == organization_id)
+                    )) &
+                    (or_(
+                        Task.title.ilike(f"%{q}%"),
+                        Task.description.ilike(f"%{q}%")
+                    ))
+                ).limit(limit)
+            )
+            return [
+                {
+                    "type": "task",
+                    "id": task.id,
+                    "title": task.title,
+                    "description": task.description,
+                    "url": f"/tasks/{task.id}"
+                }
+                for task in tasks_result.scalars()
+            ]
+        return []
+
+    async def search_users():
+        if not type_filter or type_filter == "user":
+            users_result = await db.execute(
+                select(User).where(
+                    or_(
+                        User.username.ilike(f"%{q}%"),
+                        User.full_name.ilike(f"%{q}%"),
+                        User.email.ilike(f"%{q}%")
+                    )
+                ).limit(limit)
+            )
+            return [
+                {
+                    "type": "user",
+                    "id": user.id,
+                    "title": user.full_name or user.username,
+                    "description": user.email,
+                    "url": f"/users/{user.id}"
+                }
+                for user in users_result.scalars()
+            ]
+        return []
+
+    # Execute all searches in parallel
+    project_results, task_results, user_results = await asyncio.gather(
+        search_projects(),
+        search_tasks(),
+        search_users()
+    )
+
+    # Combine results
+    results = project_results + task_results + user_results
+
     return results[skip:skip+limit]
 
 @router.get("/projects")

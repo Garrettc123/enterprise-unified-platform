@@ -42,7 +42,7 @@ class StorageConnector:
     async def connect(self) -> bool:
         """Connect to storage."""
         logger.info(f"[{self.config.name}] Connecting to {self.config.storage_type.value}...")
-        await asyncio.sleep(0.2)
+        # Removed artificial delay for production performance
         self.connected = True
         logger.info(f"[{self.config.name}] Connected successfully")
         return True
@@ -56,13 +56,13 @@ class StorageConnector:
         """Sync files to storage."""
         if not self.connected:
             raise Exception("Not connected")
-        
+
         logger.info(f"[{self.config.name}] Syncing {len(source_files)} files...")
-        await asyncio.sleep(0.1 * len(source_files) / 10)
-        
+        # Removed artificial delay for production performance
+
         self.last_sync = datetime.utcnow()
         self.sync_count += len(source_files)
-        
+
         return {
             "storage": self.config.name,
             "files_synced": len(source_files),
@@ -120,16 +120,15 @@ class StorageSyncManager:
         logger.info(f"Registered Storage: {list(self.connectors.keys())}")
         logger.info("="*80 + "\n")
 
-        # Connect all
-        for connector in self.connectors.values():
-            await connector.connect()
+        # Optimized: Connect to all storage providers in parallel
+        await asyncio.gather(*[connector.connect() for connector in self.connectors.values()])
 
         try:
             iteration = 0
             while self.is_running:
                 iteration += 1
                 logger.info(f"[Cycle {iteration}] Checking files for sync...")
-                
+
                 # Simulate file sync
                 sample_files = [
                     {"name": f"file_{i}.bin", "size": 1024 * (i+1)}

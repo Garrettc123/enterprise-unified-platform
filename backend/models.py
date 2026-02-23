@@ -102,6 +102,8 @@ class Task(Base):
         Index('idx_project_id', 'project_id'),
         Index('idx_assigned_to', 'assigned_to'),
         Index('idx_status', 'status'),
+        Index('idx_created_at', 'created_at'),
+        Index('idx_task_project_status', 'project_id', 'status'),  # Composite for common queries
     )
     
     id = Column(Integer, primary_key=True)
@@ -215,6 +217,7 @@ class AuditLog(Base):
     __table_args__ = (
         Index('idx_user_id', 'user_id'),
         Index('idx_created_at', 'created_at'),
+        Index('idx_audit_filter', 'created_at', 'action', 'entity_type'),  # Composite for filtering
     )
     
     id = Column(Integer, primary_key=True)
@@ -235,6 +238,7 @@ class Notification(Base):
     __table_args__ = (
         Index('idx_user_id', 'user_id'),
         Index('idx_read', 'is_read'),
+        Index('idx_notification_user_read', 'user_id', 'is_read'),  # Composite for user notifications
     )
     
     id = Column(Integer, primary_key=True)
