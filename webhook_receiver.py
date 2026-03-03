@@ -92,5 +92,8 @@ async def stripe_webhook(request: Request):
         pi = event['data']['object']
         email = pi.get('receipt_email', 'unknown')
         amount = pi.get('amount', 0) / 100
-        logger.info(f'PAYMENT: {email} paid ${amount}')
+        if email != "unknown" and "@" in email:
+            local, domain = email.split("@", 1)
+            email = f"{local[:2]}***@{domain}"
+        logger.info("PAYMENT: %s paid $%.2f", email, amount)
     return {'status': 'ok'}
