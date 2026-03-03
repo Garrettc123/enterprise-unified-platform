@@ -72,3 +72,37 @@ async def health():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=9000)
+
+
+# Stripe payment webhook handler
+import stripe
+import os
+
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
+stripe.api_key = STRIPE_SECRET_KEY
+
+PRODUCT_MAP = {
+    "ai_deal_desk": "AI Deal Desk - $497",
+    "seo_content_factory": "SEO Content Factory - $997",
+    "churn_predictor": "Churn Predictor - $497",
+    "smart_contract_auditor": "Smart Contract Auditor - $997",
+}
+
+@app.post("/webhook/stripe")
+async def stripe_webhook(request: Request):
+    """Receive Stripe payment events and log successful payments."""
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature", "")
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, STRIPE_WEBHOOK_SECRET
+        )
+    except stripe.error.SignatureVerificationError:
+        raise HTTPException(status_code=400, detail="Invalid Stripe signature")
+    if event["type"] == "payment_intent.succeeded":
+        pi = event["data"]["object"]
+        amount = pi.get("amount", 0) / 100
+        receipt_email = pi.get("receipt_email", "unknown")
+        logger.info(f"PAYMENT RECEIVED: ${amount} from {receipt_email}")
+    return {"status": "ok"}
