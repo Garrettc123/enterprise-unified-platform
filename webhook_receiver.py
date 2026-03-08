@@ -76,8 +76,9 @@ if __name__ == "__main__":
 
 # STRIPE PAYMENT WEBHOOK
 import os, stripe
-STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
-stripe.api_key = os.environ.get('STRIPE_SECRET_KEY', '')
+STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET')
+if not STRIPE_WEBHOOK_SECRET:
+    raise RuntimeError("STRIPE_WEBHOOK_SECRET environment variable is required for Stripe webhooks")
 PRODUCT_MAP = {'prod_U4vmR3sBAvRGnq': 'AI Deal Desk', 'prod_U4vqLmVcFl5Byi': 'SEO Content Factory', 'prod_U4vrM38MgRbD59': 'Churn Predictor', 'prod_U4vsAib9kMWgV4': 'Smart Contract Auditor'}
 
 @app.post('/webhook/stripe')
