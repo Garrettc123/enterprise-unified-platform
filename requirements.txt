@@ -51,6 +51,7 @@ watchtower>=3.0.1  # CloudWatch logging
 fastapi>=0.104.0
 uvicorn>=0.24.0
 starlette>=0.27.0
+stripe>=7.0.0
 
 # Utilities
 python-dateutil>=2.8.0
