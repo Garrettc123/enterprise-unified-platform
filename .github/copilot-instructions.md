@@ -364,3 +364,36 @@ npm run build
 8. **Error handling** - Always handle exceptions gracefully with proper logging
 9. **Database migrations** - Create migrations for schema changes
 10. **Test coverage** - Write tests for new features and bug fixes
+
+## Copilot Coding Agent Usage
+
+### When to Use the Agent
+The Copilot coding agent works best for well-scoped tasks with clear acceptance criteria:
+- Adding a new API router (e.g., "Add a `GET /api/projects/{id}/members` endpoint")
+- Fixing a specific bug with a clear reproduction path
+- Writing tests for an existing module
+- Adding a new frontend page with defined data requirements
+- Refactoring a specific module following existing patterns
+
+**Avoid** assigning broadly scoped, ambiguous, or security-critical tasks without clear boundaries.
+
+### How to Write Good Task Descriptions
+Include:
+1. **Problem statement** — what is broken or missing
+2. **Acceptance criteria** — specific, testable requirements
+3. **Files to change** — list the exact files/modules involved
+4. **Context** — link to related code, issues, or examples
+
+Example: "Add a `GET /api/projects/{id}/members` endpoint in `backend/routers/projects.py`, with a Pydantic response schema in `backend/schemas.py`, and tests in `backend/tests/test_projects.py`. Return a list of users belonging to the project's organization."
+
+### Iterating on PRs
+- Mention `@copilot` in a PR review comment to request changes
+- Batch related feedback into a single review thread for efficiency
+- Be specific: reference the file and line, and describe the desired outcome
+
+### Validation Checklist (Agent Must Complete Before Finishing)
+1. `pytest backend/tests/ -v --override-ini="addopts="` — all tests pass
+2. `cd frontend && npm run lint && npm run build` — frontend compiles cleanly
+3. No secrets committed — check against `.env.example` pattern
+4. All new endpoints have at least one test
+5. All new SQLAlchemy models have unique index names (prefix with table name)

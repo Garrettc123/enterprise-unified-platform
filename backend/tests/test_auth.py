@@ -25,12 +25,13 @@ async def test_db():
 
     app.dependency_overrides[get_db] = override_get_db
 
-    yield async_session_factory
-
-    app.dependency_overrides.clear()
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-    await engine.dispose()
+    try:
+        yield async_session_factory
+    finally:
+        app.dependency_overrides.clear()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+        await engine.dispose()
 
 @pytest.fixture
 def client(test_db):
