@@ -363,6 +363,7 @@ ignore_missing_imports = true
 # Pytest configuration
 [tool.pytest.ini_options]
 minversion = "8.0"
+asyncio_mode = "auto"
 addopts = [
     "-ra",
     "-q",
@@ -375,7 +376,6 @@ addopts = [
     "--cov-report=xml",
     "--cov-branch",
     "--cov-fail-under=80",
-    "--asyncio-mode=auto",
     "--tb=short",
 ]
 testpaths = ["tests", "backend/tests"]

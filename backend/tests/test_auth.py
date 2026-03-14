@@ -3,8 +3,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from backend.main import app
 from backend.database import get_db
-from backend.models import Base, User
-from backend.security import get_password_hash
+from backend.models import Base
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
@@ -17,24 +16,25 @@ async def test_db():
     )
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     async_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    
+
     async def override_get_db():
         async with async_session_factory() as session:
             yield session
-    
+
     app.dependency_overrides[get_db] = override_get_db
-    
+
     yield async_session_factory
-    
+
+    app.dependency_overrides.clear()
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
 
 @pytest.fixture
-def client():
-    """Create test client"""
+def client(test_db):
+    """Create test client with database override applied"""
     return TestClient(app)
 
 def test_register_user(client):
@@ -64,7 +64,7 @@ def test_login_user(client):
             "full_name": "Test User"
         }
     )
-    
+
     # Then try to login
     response = client.post(
         "/api/auth/login",
