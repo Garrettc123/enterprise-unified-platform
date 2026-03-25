@@ -1,0 +1,53 @@
+name: 🩺 Self-Heal — Validate & Fix Blockers
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  heal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Python deps
+        run: |
+          [ -f requirements.txt ] && pip install -r requirements.txt -q || echo "No requirements.txt"
+        continue-on-error: true
+      - name: Node deps
+        run: |
+          if [ -f frontend/package.json ]; then
+            set -o pipefail
+            npm install --cwd frontend --prefer-offline 2>&1 | tail -50
+          else
+            echo "No package.json"
+          fi
+        continue-on-error: true
+      - name: Validate workflow YAML
+        run: |
+          pip install pyyaml -q
+          python3 << 'PYEOF'
+          import os, sys, yaml
+          errors = []
+          for fn in os.listdir('.github/workflows'):
+              if fn.endswith(('.yml','.yaml')):
+                  try:
+                      with open(f'.github/workflows/{fn}') as f:
+                          yaml.safe_load(f)
+                      print(f'  OK {fn}')
+                  except yaml.YAMLError as e:
+                      errors.append(fn)
+                      print(f'  ERR {fn}: {e}')
+          print(f'Result: {len(errors)} errors')
+          sys.exit(1 if errors else 0)
+          PYEOF
+      - name: Done
+        run: echo "self-heal done $(date -u)"
