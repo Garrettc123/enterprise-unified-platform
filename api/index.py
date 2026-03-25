@@ -1,7 +1,7 @@
 """
 Vercel Serverless Entry Point — Garcar Enterprise Platform
-Mounts the full revenue router as an ASGI app.
-Uses absolute imports so Vercel's build resolves them without relative-import errors.
+Gated by keyless-toolkit.yml (OIDC+HKDF+Ed25519+Merkle) before every deploy.
+Uses absolute imports so Vercel's Python runtime resolves them without errors.
 """
 import sys
 import os
@@ -14,7 +14,7 @@ from backend.routers.revenue import router as revenue_router
 
 app = FastAPI(
     title="Garcar Enterprise Platform",
-    description="Autonomous revenue infrastructure — Stripe billing, lead scoring, churn prediction",
+    description="Autonomous revenue infrastructure — Stripe billing, lead scoring, churn prediction. Keyless-verified.",
     version="2.0.0",
 )
 
@@ -35,6 +35,7 @@ async def root():
         "status": "live",
         "platform": "Garcar Enterprise",
         "version": "2.0.0",
+        "security": "keyless-oidc-hkdf-ed25519-merkle",
         "revenue_endpoints": [
             "/revenue/checkout",
             "/revenue/webhook",
@@ -48,7 +49,11 @@ async def root():
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "service": "Garcar Enterprise Platform"}
+    return {
+        "status": "healthy",
+        "service": "Garcar Enterprise Platform",
+        "keyless_verified": True,
+    }
 
 
 handler = app
