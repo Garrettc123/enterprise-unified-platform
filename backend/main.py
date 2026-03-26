@@ -1,58 +1,63 @@
-from fastapi import FastAPI, WebSocket, Depends
+from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
+import os
 
 from .database import init_db
 from .middleware import RequestLoggingMiddleware, RateLimitMiddleware
 from .websocket_manager import ConnectionManager
 from .routers import auth, projects, tasks, organizations, analytics, notifications, files, search, export, audit, revenue
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# WebSocket manager
 ws_manager = ConnectionManager()
+
+_CORS_ORIGINS = [
+    "https://garcarenterprise.com",
+    "https://ueep.vercel.app",
+    "https://www.garcarenterprise.com",
+]
+if extra := os.environ.get("CORS_EXTRA_ORIGINS", ""):
+    _CORS_ORIGINS += [o.strip() for o in extra.split(",") if o.strip()]
+if os.environ.get("ENVIRONMENT", "production") != "production":
+    _CORS_ORIGINS += ["http://localhost:3000", "http://localhost:8000", "http://127.0.0.1:3000"]
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
     logger.info("🚀 Starting Enterprise Unified Platform")
     await init_db()
     logger.info("✅ Database initialized")
-    logger.info("📊 Analytics system ready")
+    logger.info("💰 MoneyEngine ready — Stripe + GENESIS active")
     logger.info("🔐 Authentication system active")
+    logger.info("📊 Analytics system ready")
     logger.info("👥 Team collaboration features enabled")
     yield
-    # Shutdown
-    logger.info("💤 Shutting down")
+    logger.info("💤 Shutting down Enterprise Unified Platform")
 
-# Create FastAPI app
+
 app = FastAPI(
     title="Enterprise Unified Platform",
-    description="Comprehensive enterprise management system with project management, task tracking, analytics, and real-time collaboration",
-    version="1.0.0",
-    lifespan=lifespan
+    description="Autonomous revenue + enterprise management system — Garcar Enterprise",
+    version="2.0.0",
+    lifespan=lifespan,
 )
 
-# Add middleware
 app.add_middleware(RateLimitMiddleware, requests_per_minute=100)
 app.add_middleware(RequestLoggingMiddleware)
-
-# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "stripe-signature", "X-Request-ID"],
 )
 
-# Include routers
 app.include_router(auth.router)
 app.include_router(projects.router)
 app.include_router(tasks.router)
@@ -65,83 +70,45 @@ app.include_router(export.router)
 app.include_router(audit.router)
 app.include_router(revenue.router)
 
-# Health check
+
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
     return {
         "status": "healthy",
         "service": "Enterprise Unified Platform",
-        "version": "1.0.0",
-        "active_connections": ws_manager.get_connection_count()
+        "version": "2.0.0",
+        "active_ws_connections": ws_manager.get_connection_count(),
     }
 
-# Root endpoint
+
 @app.get("/")
 async def root():
-    """API root endpoint"""
     return {
-        "message": "Welcome to Enterprise Unified Platform",
-        "version": "1.0.0",
-        "documentation": "/docs",
-        "features": [
-            "Project Management",
-            "Task Tracking",
-            "Team Collaboration",
-            "Analytics & Reporting",
-            "File Management",
-            "Advanced Search",
-            "Data Export",
-            "Audit Logging",
-            "Real-time Updates",
-            "API Key Management",
-            "Revenue Management"
-        ]
+        "message": "Enterprise Unified Platform — Garcar Enterprise",
+        "version": "2.0.0",
+        "docs": "/docs",
+        "health": "/health",
+        "revenue": "/revenue/health",
     }
 
-# WebSocket endpoint for real-time updates
+
 @app.websocket("/ws/{client_id}")
 async def websocket_endpoint(websocket: WebSocket, client_id: str):
-    """WebSocket endpoint for real-time updates"""
     await ws_manager.connect(websocket)
     try:
         while True:
-            # Receive message from client
             data = await websocket.receive_text()
-            # Broadcast to all clients
             await ws_manager.broadcast_json({
                 "type": "message",
                 "client_id": client_id,
                 "data": data,
-                "timestamp": __import__('datetime').datetime.utcnow().isoformat()
+                "timestamp": __import__('datetime').datetime.utcnow().isoformat(),
             })
     except Exception as e:
-        logger.error(f"WebSocket error: {e}")
+        logger.error("WebSocket error for client %s: %s", client_id, e)
     finally:
         ws_manager.disconnect(websocket)
 
-# Startup event
-@app.on_event("startup")
-async def startup_event():
-    logger.info("\n" + "="*60)
-    logger.info("Enterprise Unified Platform v1.0.0")
-    logger.info("="*60)
-    logger.info("✅ Authentication & Security")
-    logger.info("✅ Project & Task Management")
-    logger.info("✅ Team Collaboration")
-    logger.info("✅ Analytics & Insights")
-    logger.info("✅ File Management")
-    logger.info("✅ Advanced Search")
-    logger.info("✅ Data Export")
-    logger.info("✅ Audit Logging")
-    logger.info("✅ Real-time Updates")
-    logger.info("✅ Revenue Management")
-    logger.info("="*60 + "\n")
-
-# Shutdown event
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info("Shutting down Enterprise Unified Platform...")
 
 if __name__ == "__main__":
     import uvicorn
