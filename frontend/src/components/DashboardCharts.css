@@ -1,0 +1,45 @@
+.dashboard-charts {
+  margin-top: 2.5rem;
+}
+
+.charts-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  color: var(--gray-800);
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 1.5rem;
+}
+
+.chart-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 1px solid var(--gray-200);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.chart-card h3 {
+  font-size: 1rem;
+  color: var(--gray-700);
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+.chart-empty {
+  text-align: center;
+  color: var(--gray-400);
+  padding: 3rem 1rem;
+  font-size: 0.95rem;
+}
+
+.charts-loading {
+  text-align: center;
+  color: var(--gray-500);
+  padding: 2rem;
+  font-size: 1rem;
+}
