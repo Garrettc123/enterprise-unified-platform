@@ -1,0 +1,119 @@
+# =============================================================================
+# Keyless Vercel Deploy — Zero Static Secrets
+# =============================================================================
+# Every deploy to Vercel is gated by a cryptographic proof from keyless-toolkit.yml
+# OIDC JWT → HKDF-SHA3-256 → Ed25519 sign/verify → Merkle root → Vercel deploy
+# No VERCEL_TOKEN stored in workflow yaml. Only in GitHub Secrets (never logged).
+# =============================================================================
+
+name: 🔐 Keyless Vercel Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [production, preview]
+        default: production
+        description: Deploy target
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Step 1: Keyless cryptographic proof (OIDC → HKDF → Ed25519 → Merkle)
+  # ---------------------------------------------------------------------------
+  keyless-proof:
+    name: "🔐 Keyless Deploy Proof"
+    uses: ./.github/workflows/keyless-toolkit.yml
+    with:
+      action: "vercel-deploy"
+      target: ${{ inputs.environment || 'production' }}
+
+  # ---------------------------------------------------------------------------
+  # Step 2: Deploy to Vercel — only runs after keyless proof passes
+  # ---------------------------------------------------------------------------
+  deploy-vercel:
+    name: "🚀 Deploy to Vercel"
+    runs-on: ubuntu-latest
+    needs: keyless-proof
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest --quiet
+
+      - name: Deploy
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ "${{ inputs.environment }}" = "preview" ]; then
+            URL=$(vercel deploy --token "$VERCEL_TOKEN" 2>&1 | tail -1)
+          else
+            URL=$(vercel deploy --prod --token "$VERCEL_TOKEN" 2>&1 | tail -1)
+          fi
+          echo "deploy_url=$URL" >> $GITHUB_OUTPUT
+          echo "✅ Deployed to: $URL"
+
+      - name: Health check — /health
+        id: health
+        run: |
+          URL="${{ steps.deploy.outputs.deploy_url }}"
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL/health" || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "health=pass" >> $GITHUB_OUTPUT
+              echo "✅ Health check passed (attempt $i)"
+              break
+            fi
+            echo "Attempt $i: HTTP $STATUS — retrying in 10s..."
+            sleep 10
+          done
+          if [ "$STATUS" != "200" ]; then
+            echo "health=fail" >> $GITHUB_OUTPUT
+            echo "::error::Health check FAILED after 5 attempts"
+            exit 1
+          fi
+
+      - name: Revenue health check — /revenue/health
+        id: revenue-health
+        continue-on-error: true
+        run: |
+          URL="${{ steps.deploy.outputs.deploy_url }}"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL/revenue/health" || echo "000")
+          echo "revenue_health=$STATUS" >> $GITHUB_OUTPUT
+          echo "💰 Revenue health: HTTP $STATUS"
+
+      - name: Step Summary
+        if: always()
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY <<EOF
+          ## 🔐 Keyless Vercel Deploy Report
+
+          | Field | Value |
+          |---|---|
+          | Environment | \`${{ inputs.environment || 'production' }}\` |
+          | Deploy URL | ${{ steps.deploy.outputs.deploy_url }} |
+          | Health Check | ${{ steps.health.outputs.health == 'pass' && '✅ Pass' || '❌ Fail' }} |
+          | Revenue Health | HTTP ${{ steps.revenue-health.outputs.revenue_health }} |
+          | Keyless Merkle Root | \`${{ needs.keyless-proof.outputs.merkle_root }}\` |
+          | HKDF Fingerprint | \`${{ needs.keyless-proof.outputs.hkdf_fp }}\` |
+          | Commit | \`${{ github.sha }}\` |
+          | Actor | \`${{ github.actor }}\` |
+          | Timestamp | $(date -u +"%Y-%m-%dT%H:%M:%SZ") |
+
+          > 🔐 Deploy gated by OIDC+HKDF+Ed25519+Merkle via keyless-toolkit.yml. Zero static secrets in workflow.
+          EOF
