@@ -122,27 +122,66 @@ class APIKeyResponse(BaseModel):
     class Config:
         from_attributes = True
 
-class SearchResultItem(BaseModel):
-    type: str
+
+# Revenue schemas
+
+class SubscriptionBase(BaseModel):
+    plan: str = Field(..., pattern=r'^(starter|pro|enterprise)$')
+    billing_cycle: str = Field(default='monthly', pattern=r'^(monthly|annual)$')
+
+class SubscriptionCreate(SubscriptionBase):
+    organization_id: int
+
+class SubscriptionUpdate(BaseModel):
+    plan: Optional[str] = Field(default=None, pattern=r'^(starter|pro|enterprise)$')
+    billing_cycle: Optional[str] = Field(default=None, pattern=r'^(monthly|annual)$')
+
+class SubscriptionResponse(SubscriptionBase):
     id: int
-    title: str
-    description: Optional[str] = None
-    score: Optional[float] = None
-    url: str
-    highlights: Optional[dict] = None
+    organization_id: int
+    status: str
+    amount: float
+    currency: str
+    current_period_start: datetime
+    current_period_end: datetime
+    canceled_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
 
-class SearchResponse(BaseModel):
-    results: List[SearchResultItem]
-    total: int
-    query: str
-    source: str = "database"
+    class Config:
+        from_attributes = True
 
-class SearchSuggestion(BaseModel):
-    type: str
+class InvoiceResponse(BaseModel):
     id: int
-    title: str
+    subscription_id: int
+    organization_id: int
+    amount: float
+    currency: str
+    status: str
+    due_date: datetime
+    paid_at: Optional[datetime] = None
+    period_start: datetime
+    period_end: datetime
+    created_at: datetime
 
-class ReindexResponse(BaseModel):
-    entity_type: str
-    indexed: int
-    errors: int
+    class Config:
+        from_attributes = True
+
+class PaymentCreate(BaseModel):
+    invoice_id: int
+    payment_method: str = Field(..., pattern=r'^(credit_card|bank_transfer|wire)$')
+    reference_id: Optional[str] = None
+
+class PaymentResponse(BaseModel):
+    id: int
+    invoice_id: Optional[int] = None
+    organization_id: int
+    amount: float
+    currency: str
+    payment_method: str
+    status: str
+    reference_id: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
