@@ -6,11 +6,10 @@ on:
     - cron: '0 6 * * *'
   workflow_dispatch: {}
 permissions:
-  contents: write
+  contents: read
 jobs:
   heal:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -25,20 +24,30 @@ jobs:
         continue-on-error: true
       - name: Node deps
         run: |
-          [ -f package.json ] && npm install --prefer-offline 2>&1 | tail -3 || echo "No package.json"
+          if [ -f frontend/package.json ]; then
+            set -o pipefail
+            npm install --cwd frontend --prefer-offline 2>&1 | tail -50
+          else
+            echo "No package.json"
+          fi
         continue-on-error: true
       - name: Validate workflow YAML
         run: |
           pip install pyyaml -q
           python3 << 'PYEOF'
-          import os, yaml
+          import os, sys, yaml
           errors = []
           for fn in os.listdir('.github/workflows'):
               if fn.endswith(('.yml','.yaml')):
-                  try: yaml.safe_load(open(f'.github/workflows/{fn}')); print(f'  OK {fn}')
-                  except yaml.YAMLError as e: errors.append(fn); print(f'  ERR {fn}: {e}')
+                  try:
+                      with open(f'.github/workflows/{fn}') as f:
+                          yaml.safe_load(f)
+                      print(f'  OK {fn}')
+                  except yaml.YAMLError as e:
+                      errors.append(fn)
+                      print(f'  ERR {fn}: {e}')
           print(f'Result: {len(errors)} errors')
+          sys.exit(1 if errors else 0)
           PYEOF
-        continue-on-error: true
       - name: Done
-        run: echo "Self-heal done $(date -u)"
+        run: echo "self-heal done $(date -u)"

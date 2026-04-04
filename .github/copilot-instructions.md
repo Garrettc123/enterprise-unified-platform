@@ -10,7 +10,7 @@ Enterprise-grade unified platform: Next.js 14 frontend + FastAPI backend + real-
 
 ## Standards
 - All API routes must have OpenAPI docs via FastAPI's auto-docs
-- All env vars from `.env` or AWS SSM — never hardcoded
+- All env vars must come from `.env` or AWS SSM — never hardcoded
 - All new features need a corresponding GitHub Actions CI check
 - PRs must not break existing `/health` endpoints
 - Use `continue-on-error: true` on optional CI steps
@@ -18,6 +18,4 @@ Enterprise-grade unified platform: Next.js 14 frontend + FastAPI backend + real-
 
 ## Key Dirs
 - `frontend/` — Next.js app
-- `backend/` — FastAPI app  
-- `infrastructure/` — Terraform/Docker
-- `.github/workflows/` — CI/CD pipelines
+- `backend/` — FastAPI app
