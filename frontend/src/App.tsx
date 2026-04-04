@@ -27,6 +27,7 @@ function App() {
                     <Route path="/projects" element={<Projects />} />
                     <Route path="/projects/:id" element={<ProjectDetail />} />
                     <Route path="/tasks" element={<Tasks />} />
+                    <Route path="/admin" element={<AdminDashboard />} />
                     <Route path="/" element={<Navigate to="/dashboard" />} />
                   </Routes>
                 </div>
