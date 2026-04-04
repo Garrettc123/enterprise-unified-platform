@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { analyticsApi } from '../services/api'
+import DashboardCharts from '../components/DashboardCharts'
 import './Dashboard.css'
 
 interface DashboardMetrics {
@@ -78,6 +79,8 @@ function Dashboard() {
           </div>
         </div>
       )}
+
+      <DashboardCharts organizationId={organizationId} />
     </div>
   )
 }
