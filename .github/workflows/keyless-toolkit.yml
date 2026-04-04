@@ -1,0 +1,117 @@
+# =============================================================================
+# Keyless Toolkit — Reusable Workflow
+# =============================================================================
+# Called by any other workflow via 'uses: ./.github/workflows/keyless-toolkit.yml'
+# with: action: "deploy" / target: "production"
+#
+# ZERO SECRETS stored. All credentials derived ephemerally from:
+#   GITHUB_SHA + GITHUB_REPOSITORY + GITHUB_ACTOR + OIDC JWT
+# =============================================================================
+
+name: 🔐 Keyless Toolkit (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      action:
+        required: true
+        type: string
+        description: "Action label to sign (e.g. deploy, audit, rotate)"
+      target:
+        required: false
+        type: string
+        default: "production"
+        description: "Target resource or environment"
+    outputs:
+      merkle_root:
+        description: "SHA3-256 Merkle root of signed state"
+        value: ${{ jobs.keyless.outputs.merkle_root }}
+      hkdf_fp:
+        description: "HKDF fingerprint (16-char hex prefix)"
+        value: ${{ jobs.keyless.outputs.hkdf_fp }}
+      signed_json:
+        description: "Full SignedPayload JSON (safe to log — no secrets)"
+        value: ${{ jobs.keyless.outputs.signed_json }}
+
+  workflow_dispatch:
+    inputs:
+      action:
+        required: true
+        type: string
+        default: "manual-audit"
+      target:
+        required: false
+        type: string
+        default: "production"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  keyless:
+    name: "🔐 Sign & Verify (${{ inputs.action }})"
+    runs-on: ubuntu-latest
+    outputs:
+      merkle_root: ${{ steps.sign.outputs.merkle_root }}
+      hkdf_fp: ${{ steps.sign.outputs.hkdf_fp }}
+      signed_json: ${{ steps.sign.outputs.signed_json }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install cryptography
+        run: pip install cryptography --quiet
+
+      - name: 🔐 Keyless Sign & Verify
+        id: sign
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          KL_ACTION: ${{ inputs.action }}
+          KL_TARGET: ${{ inputs.target }}
+        run: |
+          python - <<'PYEOF'
+          import os, sys
+          sys.path.insert(0, os.getcwd())
+          from utils.keyless_utils import KeylessContext
+
+          ctx = KeylessContext.from_env()
+
+          payload = {
+              "action": os.environ["KL_ACTION"],
+              "target": os.environ["KL_TARGET"],
+              "sha": os.environ["GITHUB_SHA"],
+              "repo": os.environ["GITHUB_REPOSITORY"],
+              "actor": os.environ["GITHUB_ACTOR"],
+          }
+
+          signed = ctx.sign_payload(payload)
+          assert ctx.verify(signed), "❌ Ed25519 verification FAILED — aborting"
+
+          print(f"::notice title=Keyless OK::Merkle={signed.merkle} | HKDF={signed.hkdf_fingerprint}")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"merkle_root={signed.merkle}\n")
+              f.write(f"hkdf_fp={signed.hkdf_fingerprint}\n")
+              f.write(f"signed_json={signed.to_json()}\n")
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write("## 🔐 Keyless Signature Report\n")
+              f.write(f"| Field | Value |\n|---|---|\n")
+              f.write(f"| Action | `{payload['action']}` |\n")
+              f.write(f"| Target | `{payload['target']}` |\n")
+              f.write(f"| Commit SHA | `{payload['sha']}` |\n")
+              f.write(f"| HKDF Fingerprint | `{signed.hkdf_fingerprint}` |\n")
+              f.write(f"| Ed25519 PubKey | `{signed.public_key_hex[:32]}...` |\n")
+              f.write(f"| **Merkle Root** | `{signed.merkle}` |\n")
+              f.write(f"| Verified | ✅ |\n")
+              f.write("\n> No secret or key was stored. All credentials derived ephemerally via OIDC+HKDF+Ed25519.\n")
+          PYEOF

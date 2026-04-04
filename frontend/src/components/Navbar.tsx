@@ -25,18 +25,11 @@ function Navbar() {
       <div className="navbar-brand">
         <Link to="/dashboard">🚀 Enterprise Platform</Link>
       </div>
-      <button
-        className="mobile-menu-toggle"
-        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        aria-label="Toggle navigation menu"
-        aria-expanded={mobileMenuOpen}
-      >
-        <span className={`hamburger ${mobileMenuOpen ? 'open' : ''}`} />
-      </button>
-      <div className={`navbar-menu ${mobileMenuOpen ? 'active' : ''}`}>
-        <Link to="/dashboard" className="nav-link" onClick={closeMobileMenu}>Dashboard</Link>
-        <Link to="/projects" className="nav-link" onClick={closeMobileMenu}>Projects</Link>
-        <Link to="/tasks" className="nav-link" onClick={closeMobileMenu}>Tasks</Link>
+      <div className="navbar-menu">
+        <Link to="/dashboard" className="nav-link">Dashboard</Link>
+        <Link to="/projects" className="nav-link">Projects</Link>
+        <Link to="/tasks" className="nav-link">Tasks</Link>
+        <Link to="/admin" className="nav-link">Admin</Link>
       </div>
       <div className="navbar-end">
         <Link to="/notifications" className="nav-link notification-link">
