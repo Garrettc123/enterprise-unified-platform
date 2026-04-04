@@ -70,10 +70,12 @@ class TaskBase(BaseModel):
 class TaskCreate(TaskBase):
     project_id: int
     assigned_to: Optional[int] = None
+    iteration_id: Optional[int] = None
 
 class TaskResponse(TaskBase):
     id: int
     project_id: int
+    iteration_id: Optional[int] = None
     assigned_to: Optional[int] = None
     created_by: int
     due_date: Optional[datetime] = None

@@ -36,6 +36,7 @@ async def create_task(
         title=task_data.title,
         description=task_data.description,
         project_id=task_data.project_id,
+        iteration_id=task_data.iteration_id,
         assigned_to=task_data.assigned_to,
         created_by=current_user.id,
         status=task_data.status,
@@ -77,6 +78,7 @@ async def list_tasks(
     status: str = Query(None),
     assigned_to: int = Query(None),
     priority: str = Query(None),
+    iteration_id: int = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     token: str = Depends(oauth2_scheme),
@@ -95,6 +97,9 @@ async def list_tasks(
     
     if priority:
         query = query.where(Task.priority == priority)
+    
+    if iteration_id is not None:
+        query = query.where(Task.iteration_id == iteration_id)
     
     query = query.order_by(desc(Task.created_at)).offset(skip).limit(limit)
     result = await db.execute(query)

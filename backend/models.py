@@ -96,6 +96,7 @@ class Project(Base):
     team_members = relationship('User', secondary=project_team, back_populates='projects')
     tasks = relationship('Task', back_populates='project', cascade='all, delete-orphan')
     milestones = relationship('Milestone', back_populates='project', cascade='all, delete-orphan')
+    iterations = relationship('Iteration', back_populates='project', cascade='all, delete-orphan')
 
 class Task(Base):
     __tablename__ = 'task'
@@ -109,6 +110,7 @@ class Task(Base):
     title = Column(String(255), nullable=False)
     description = Column(Text)
     project_id = Column(Integer, ForeignKey('project.id', ondelete='CASCADE'), nullable=False)
+    iteration_id = Column(Integer, ForeignKey('iteration.id', ondelete='SET NULL'), nullable=True)
     assigned_to = Column(Integer, ForeignKey('user.id'))
     created_by = Column(Integer, ForeignKey('user.id'), nullable=False)
     status = Column(String(20), default='todo')  # todo, in_progress, in_review, completed, blocked
@@ -123,6 +125,7 @@ class Task(Base):
     
     # Relationships
     project = relationship('Project', back_populates='tasks')
+    iteration = relationship('Iteration', back_populates='tasks')
     comments = relationship('Comment', back_populates='task', cascade='all, delete-orphan')
     attachments = relationship('Attachment', back_populates='task', cascade='all, delete-orphan')
 
@@ -142,6 +145,28 @@ class Comment(Base):
     
     # Relationships
     task = relationship('Task', back_populates='comments')
+
+class Iteration(Base):
+    __tablename__ = 'iteration'
+    __table_args__ = (
+        Index('idx_iteration_project_id', 'project_id'),
+        Index('idx_iteration_status', 'status'),
+    )
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    project_id = Column(Integer, ForeignKey('project.id', ondelete='CASCADE'), nullable=False)
+    start_date = Column(DateTime, nullable=False)
+    end_date = Column(DateTime, nullable=False)
+    status = Column(String(20), default='planning')  # planning, active, completed, cancelled
+    goal = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    project = relationship('Project', back_populates='iterations')
+    tasks = relationship('Task', back_populates='iteration')
 
 class Milestone(Base):
     __tablename__ = 'milestone'
