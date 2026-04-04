@@ -21,7 +21,7 @@ export function useNotifications() {
     try {
       const data: Notification[] = await notificationsApi.getNotifications(token)
       setNotifications(data)
-      setUnreadCount(data.filter((notification) => !notification.is_read).length)
+      setUnreadCount(data.filter((n: { is_read: boolean }) => !n.is_read).length)
     } catch (error) {
       console.error('Error fetching notifications:', error)
     }
