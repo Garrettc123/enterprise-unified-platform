@@ -124,30 +124,66 @@ class APIKeyResponse(BaseModel):
     class Config:
         from_attributes = True
 
-class IterationBase(BaseModel):
-    name: str = Field(..., min_length=1, max_length=255)
-    description: Optional[str] = None
-    start_date: datetime
-    end_date: datetime
-    status: str = 'planning'
-    goal: Optional[str] = None
 
-class IterationCreate(IterationBase):
-    project_id: int
+# Revenue schemas
 
-class IterationUpdate(BaseModel):
-    name: Optional[str] = Field(None, min_length=1, max_length=255)
-    description: Optional[str] = None
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
-    status: Optional[str] = None
-    goal: Optional[str] = None
+class SubscriptionBase(BaseModel):
+    plan: str = Field(..., pattern=r'^(starter|pro|enterprise)$')
+    billing_cycle: str = Field(default='monthly', pattern=r'^(monthly|annual)$')
 
-class IterationResponse(IterationBase):
+class SubscriptionCreate(SubscriptionBase):
+    organization_id: int
+
+class SubscriptionUpdate(BaseModel):
+    plan: Optional[str] = Field(default=None, pattern=r'^(starter|pro|enterprise)$')
+    billing_cycle: Optional[str] = Field(default=None, pattern=r'^(monthly|annual)$')
+
+class SubscriptionResponse(SubscriptionBase):
     id: int
-    project_id: int
+    organization_id: int
+    status: str
+    amount: float
+    currency: str
+    current_period_start: datetime
+    current_period_end: datetime
+    canceled_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
-    
+
+    class Config:
+        from_attributes = True
+
+class InvoiceResponse(BaseModel):
+    id: int
+    subscription_id: int
+    organization_id: int
+    amount: float
+    currency: str
+    status: str
+    due_date: datetime
+    paid_at: Optional[datetime] = None
+    period_start: datetime
+    period_end: datetime
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class PaymentCreate(BaseModel):
+    invoice_id: int
+    payment_method: str = Field(..., pattern=r'^(credit_card|bank_transfer|wire)$')
+    reference_id: Optional[str] = None
+
+class PaymentResponse(BaseModel):
+    id: int
+    invoice_id: Optional[int] = None
+    organization_id: int
+    amount: float
+    currency: str
+    payment_method: str
+    status: str
+    reference_id: Optional[str] = None
+    created_at: datetime
+
     class Config:
         from_attributes = True
