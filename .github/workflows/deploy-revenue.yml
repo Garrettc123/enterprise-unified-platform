@@ -1,0 +1,136 @@
+# =============================================================================
+# Revenue Engine Deploy Pipeline
+# =============================================================================
+# Triggered: push to main or feat/revenue-* branches, or manual dispatch
+# Steps:
+#   1. Keyless cryptographic deploy proof (calls keyless-toolkit.yml)
+#   2. Python tests for revenue module
+#   3. Deploy to Vercel (production)
+#   4. Health check gate (hits /revenue/health)
+#   5. GitHub Step Summary with full deploy report
+# =============================================================================
+
+name: 💰 Deploy Revenue Engine
+
+on:
+  push:
+    branches: [main, "feat/revenue-*"]
+    paths:
+      - "backend/routers/revenue.py"
+      - "backend/revenue_agent.py"
+      - "backend/tests/test_revenue.py"
+      - ".github/workflows/deploy-revenue.yml"
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [production, staging]
+        default: production
+        description: Deploy target
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1: Keyless deploy proof (zero secrets)
+  # ---------------------------------------------------------------------------
+  keyless-proof:
+    name: "🔐 Keyless Deploy Proof"
+    uses: ./.github/workflows/keyless-toolkit.yml
+    with:
+      action: "revenue-deploy"
+      target: ${{ inputs.environment || 'production' }}
+
+  # ---------------------------------------------------------------------------
+  # Job 2: Test revenue module
+  # ---------------------------------------------------------------------------
+  test-revenue:
+    name: "🧪 Test Revenue Module"
+    runs-on: ubuntu-latest
+    needs: keyless-proof
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install fastapi uvicorn pydantic httpx pytest pytest-asyncio cryptography --quiet
+
+      - name: Run revenue tests
+        run: pytest backend/tests/test_revenue.py -v --tb=short
+
+  # ---------------------------------------------------------------------------
+  # Job 3: Deploy to Vercel
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: "🚀 Deploy to Vercel"
+    runs-on: ubuntu-latest
+    needs: [keyless-proof, test-revenue]
+    environment: ${{ inputs.environment || 'production' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest --quiet
+
+      - name: Deploy
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ "${{ inputs.environment }}" = "staging" ]; then
+            URL=$(vercel deploy --token $VERCEL_TOKEN 2>&1 | tail -1)
+          else
+            URL=$(vercel deploy --prod --token $VERCEL_TOKEN 2>&1 | tail -1)
+          fi
+          echo "deploy_url=$URL" >> $GITHUB_OUTPUT
+          echo "Deployed to: $URL"
+
+      - name: Health check — /revenue/health
+        id: health
+        run: |
+          URL="${{ steps.deploy.outputs.deploy_url }}"
+          echo "Checking $URL/revenue/health ..."
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL/revenue/health" || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "health=pass" >> $GITHUB_OUTPUT
+              echo "✅ Health check passed (attempt $i)"
+              break
+            fi
+            echo "Attempt $i: HTTP $STATUS — retrying in 10s..."
+            sleep 10
+          done
+          if [ "${STATUS}" != "200" ]; then
+            echo "health=fail" >> $GITHUB_OUTPUT
+            echo "::error::Revenue health check FAILED after 5 attempts"
+            exit 1
+          fi
+
+      - name: Write Step Summary
+        if: always()
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY <<EOF
+          ## 💰 Revenue Engine Deploy Report
+
+          | Field | Value |
+          |---|---|
+          | Environment | \`${{ inputs.environment || 'production' }}\` |
+          | Deploy URL | ${{ steps.deploy.outputs.deploy_url }} |
+          | Health Check | ${{ steps.health.outputs.health == 'pass' && '✅ Pass' || '❌ Fail' }} |
+          | Keyless Merkle | \`${{ needs.keyless-proof.outputs.merkle_root }}\` |
+          | HKDF Fingerprint | \`${{ needs.keyless-proof.outputs.hkdf_fp }}\` |
+          | Commit | \`${{ github.sha }}\` |
+          | Actor | \`${{ github.actor }}\` |
+          | Timestamp | $(date -u +"%Y-%m-%dT%H:%M:%SZ") |
+
+          > 🔐 Deploy cryptographically proven via OIDC+HKDF+Ed25519+Merkle. No secret stored.
+          EOF
