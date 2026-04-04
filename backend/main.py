@@ -1,5 +1,5 @@
 from fastapi import FastAPI, WebSocket, Depends
-from starlette.middleware.cors import CORSMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 import logging
@@ -8,7 +8,7 @@ import json
 from .database import init_db
 from .middleware import RequestLoggingMiddleware, RateLimitMiddleware
 from .websocket_manager import ConnectionManager
-from .routers import auth, projects, tasks, organizations, analytics, notifications, files, search, export, audit
+from .routers import auth, projects, tasks, organizations, analytics, notifications, files, search, export, audit, revenue
 
 # Configure logging
 logging.basicConfig(
@@ -65,6 +65,7 @@ app.include_router(files.router)
 app.include_router(search.router)
 app.include_router(export.router)
 app.include_router(audit.router)
+app.include_router(revenue.router)
 
 # Health check
 @app.get("/health")
@@ -95,7 +96,8 @@ async def root():
             "Data Export",
             "Audit Logging",
             "Real-time Updates",
-            "API Key Management"
+            "API Key Management",
+            "Revenue Management"
         ]
     }
 
@@ -220,6 +222,7 @@ async def startup_event():
     logger.info("✅ Data Export")
     logger.info("✅ Audit Logging")
     logger.info("✅ Real-time Updates")
+    logger.info("✅ Revenue Management")
     logger.info("="*60 + "\n")
 
 # Shutdown event
