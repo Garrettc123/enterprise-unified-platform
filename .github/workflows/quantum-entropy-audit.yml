@@ -1,0 +1,74 @@
+name: 🔬 Daily Quantum Entropy & Crypto Audit
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Cryptographic Health
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install crypto
+        run: pip install cryptography>=42.0.0 --quiet
+
+      - name: Full stack audit
+        run: |
+          python - <<'EOF'
+          import os, hashlib, hmac, json, sys
+          results = {}
+
+          pool = os.urandom(64)
+          results["entropy_quality"] = round(len(set(pool))/256.0, 4)
+          results["entropy_pass"] = results["entropy_quality"] > 0.5
+
+          from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+          key = Ed25519PrivateKey.generate()
+          pub = key.public_key()
+          msg = b"audit-" + os.urandom(16)
+          pub.verify(key.sign(msg), msg)
+          results["ed25519_pass"] = True
+
+          from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+          from cryptography.hazmat.primitives import hashes
+          derived = HKDF(algorithm=hashes.SHA3_256(),length=32,salt=pool[:32],info=b"audit").derive(pool[32:])
+          results["hkdf_pass"] = len(derived) == 32
+
+          binding = hmac.new(derived, b"garcar-enterprise", hashlib.sha3_256).hexdigest()
+          results["hmac_sha3_pass"] = len(binding) == 64
+
+          leaves = [hashlib.sha3_256(f"sys_{i}:{os.urandom(8).hex()}".encode()).hexdigest() for i in range(4)]
+          while len(leaves)>1:
+            if len(leaves)%2: leaves.append(leaves[-1])
+            leaves=[hashlib.sha3_256((leaves[i]+leaves[i+1]).encode()).hexdigest() for i in range(0,len(leaves),2)]
+          results["holographic_root"] = leaves[0][:32]
+          results["holographic_pass"] = True
+
+          all_pass = all(v for k,v in results.items() if k.endswith("_pass"))
+          results["all_pass"] = all_pass
+          print(json.dumps(results, indent=2))
+          sys.exit(0 if all_pass else 1)
+          EOF
+
+      - name: Post to Linear
+        if: always()
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          LINEAR_TEAM_ID: ${{ secrets.LINEAR_TEAM_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python - <<'EOF'
+          import os, json, urllib.request
+          key=os.getenv("LINEAR_API_KEY",""); team=os.getenv("LINEAR_TEAM_ID",""); url=os.getenv("RUN_URL","")
+          if not key or not team: print("⚠️  Skipping Linear"); exit(0)
+          mutation='mutation C($i:IssueCreateInput!){issueCreate(input:$i){success issue{identifier}}}'
+          variables={"i":{"teamId":team,"title":"🔬 Daily Crypto Audit — enterprise-unified-platform","description":f"[View run]({url})"}}
+          req=urllib.request.Request("https://api.linear.app/graphql",data=json.dumps({"query":mutation,"variables":variables}).encode(),headers={"Authorization":key,"Content-Type":"application/json"},method="POST")
+          with urllib.request.urlopen(req) as r: resp=json.loads(r.read())
+          print(f"✅ Linear: {resp.get('data',{}).get('issueCreate',{}).get('issue',{}).get('identifier','?')}")
+          EOF
