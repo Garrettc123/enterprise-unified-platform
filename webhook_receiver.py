@@ -72,20 +72,11 @@ async def health():
 
 
 # STRIPE PAYMENT WEBHOOK
-STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
-STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
-if not STRIPE_WEBHOOK_SECRET or not STRIPE_SECRET_KEY:
-    logger.warning(
-        "Missing required Stripe environment variables: STRIPE_WEBHOOK_SECRET and/or STRIPE_SECRET_KEY"
-    )
-stripe.api_key = STRIPE_SECRET_KEY or ""
-PRODUCT_MAP = {
-    'prod_U4vmR3sBAvRGnq': 'AI Deal Desk',
-    'prod_U4vqLmVcFl5Byi': 'SEO Content Factory',
-    'prod_U4vrM38MgRbD59': 'Churn Predictor',
-    'prod_U4vsAib9kMWgV4': 'Smart Contract Auditor',
-}
-
+import os, stripe
+STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET')
+if not STRIPE_WEBHOOK_SECRET:
+    raise RuntimeError("STRIPE_WEBHOOK_SECRET environment variable is required for Stripe webhooks")
+PRODUCT_MAP = {'prod_U4vmR3sBAvRGnq': 'AI Deal Desk', 'prod_U4vqLmVcFl5Byi': 'SEO Content Factory', 'prod_U4vrM38MgRbD59': 'Churn Predictor', 'prod_U4vsAib9kMWgV4': 'Smart Contract Auditor'}
 
 @app.post('/webhook/stripe')
 async def stripe_webhook(request: Request):
@@ -94,22 +85,16 @@ async def stripe_webhook(request: Request):
     sig = request.headers.get('stripe-signature')
     try:
         event = stripe.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
-    except stripe.error.SignatureVerificationError as err:
-        logger.warning("Stripe signature verification failed: %s", err)
-        raise HTTPException(status_code=400, detail='Invalid signature') from err
-    except ValueError as err:
-        logger.warning("Invalid webhook payload: %s", err)
-        raise HTTPException(status_code=400, detail='Invalid payload') from err
+    except (stripe.error.SignatureVerificationError, ValueError):
+        raise HTTPException(status_code=400, detail='Invalid signature')
     if event['type'] == 'payment_intent.succeeded':
         pi = event['data']['object']
         email = pi.get('receipt_email', 'unknown')
         amount = pi.get('amount', 0) / 100
         if email != "unknown" and "@" in email:
             local, domain = email.split("@", 1)
-            masked_email = f"{local[:2]}***@{domain}"
-        else:
-            masked_email = email
-        logger.info("PAYMENT: %s paid $%.2f", masked_email, amount)
+            email = f"{local[:2]}***@{domain}"
+        logger.info("PAYMENT: %s paid $%.2f", email, amount)
     return {'status': 'ok'}
 
 
