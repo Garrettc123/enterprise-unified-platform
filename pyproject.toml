@@ -392,11 +392,6 @@ markers = [
     "e2e: marks tests as end-to-end tests",
     "smoke: marks tests as smoke tests",
 ]
-filerglob_ignore = [
-    "**/node_modules/**",
-    "**/.venv/**",
-    "**/dist/**",
-]
 
 # Coverage configuration
 [tool.coverage.run]
