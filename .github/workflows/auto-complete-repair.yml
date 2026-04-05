@@ -3,8 +3,6 @@ on:
   workflow_run:
     workflows: ['CI/CD Pipeline']
     types: [completed]
-  schedule:
-    - cron: '0 */4 * * *'
   workflow_dispatch:
 jobs:
   repair:
@@ -33,6 +31,6 @@ jobs:
           git config user.name "AI Repair"
           git config user.email "repair@bot.local"
           if [ -n "$(git status --porcelain)" ]; then
-            git add . && git commit -m "🤖 Auto-repair: Code quality and tests" || true
+            git add . && git commit -m "Auto-repair: Code quality and tests" || true
             git push origin main 2>/dev/null || true
           fi

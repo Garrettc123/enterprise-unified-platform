@@ -1,8 +1,8 @@
-name: 🌐 Holographic Platform State Mesh
+name: Holographic Platform State Mesh
 
 on:
   schedule:
-    - cron: '*/30 * * * *'
+    - cron: '0 4 * * *'
   push:
     branches: [main]
   workflow_dispatch:
@@ -36,10 +36,10 @@ jobs:
           while len(leaves)>1:
             if len(leaves)%2: leaves.append(leaves[-1])
             leaves=[hashlib.sha3_256((leaves[i]+leaves[i+1]).encode()).hexdigest() for i in range(0,len(leaves),2)]
-          print(f"🌐 Merkle root: {leaves[0]}")
-          print(f"📦 Systems: {list(systems.keys())}")
-          print(f"⏱️  {time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime())}")
-          print("✅ Platform state: CONSISTENT")
+          print(f"Merkle root: {leaves[0]}")
+          print(f"Systems: {list(systems.keys())}")
+          print(f"Timestamp: {time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime())}")
+          print("Platform state: CONSISTENT")
           EOF
 
       - name: Post snapshot to Notion
@@ -50,12 +50,12 @@ jobs:
           python - <<'EOF'
           import os,json,urllib.request,hashlib,time
           token=os.getenv("NOTION_TOKEN",""); page_id=os.getenv("NOTION_SYSTEM_STATUS_PAGE","")
-          if not token or not page_id: print("⚠️  Skipping Notion — set NOTION_SYSTEM_STATUS_PAGE secret"); exit(0)
+          if not token or not page_id: print("NOTION_TOKEN or NOTION_SYSTEM_STATUS_PAGE not configured — skipping"); exit(0)
           snap=hashlib.sha3_256(os.urandom(32)+str(time.time()).encode()).hexdigest()[:32]
           payload={"parent":{"page_id":page_id},"properties":{"title":[{"text":{"content":f"State {snap[:8]}"}}]},"children":[{"object":"block","type":"paragraph","paragraph":{"rich_text":[{"text":{"content":f"Holographic root: {snap}\n{time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime())}"}}]}}]}
           req=urllib.request.Request("https://api.notion.com/v1/pages",data=json.dumps(payload).encode(),headers={"Authorization":f"Bearer {token}","Content-Type":"application/json","Notion-Version":"2022-06-28"},method="POST")
           try:
             with urllib.request.urlopen(req) as r: resp=json.loads(r.read())
-            print(f"✅ Notion snapshot: {resp.get('id','?')[:8]}...")
-          except Exception as e: print(f"⚠️  {e}")
+            print(f"Notion snapshot: {resp.get('id','?')[:8]}...")
+          except Exception as e: print(f"Notion post failed: {e}")
           EOF

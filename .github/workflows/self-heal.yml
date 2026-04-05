@@ -1,9 +1,9 @@
-name: 🩺 Self-Heal — Validate & Fix Blockers
+name: Self-Heal — Validate & Fix Blockers
 on:
   push:
     branches: [main]
   schedule:
-    - cron: '0 6 * * *'
+    - cron: '0 2 * * *'
   workflow_dispatch: {}
 permissions:
   contents: read
@@ -26,7 +26,7 @@ jobs:
         run: |
           if [ -f frontend/package.json ]; then
             set -o pipefail
-            npm install --cwd frontend --prefer-offline 2>&1 | tail -50
+            npm install --prefix frontend --prefer-offline 2>&1 | tail -50
           else
             echo "No package.json"
           fi

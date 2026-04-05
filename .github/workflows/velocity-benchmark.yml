@@ -1,10 +1,10 @@
-name: ⚡ Quantitative Speed Benchmark
+name: Quantitative Speed Benchmark
 
 on:
   push:
     branches: [main]
   schedule:
-    - cron: '0 */6 * * *'  # Every 6 hours
+    - cron: '0 5 * * *'
   workflow_dispatch:
 
 jobs:
@@ -30,14 +30,12 @@ jobs:
           N = 1000
           pool_size = 8
 
-          # Pre-warm key pool
           t0 = time.monotonic()
           with ThreadPoolExecutor(max_workers=4) as ex:
               keys = list(ex.map(lambda _: Ed25519PrivateKey.generate(), range(pool_size)))
           warm_ms = (time.monotonic() - t0) * 1000
-          print(f"⚡ Key pool warm time: {warm_ms:.1f}ms for {pool_size} keys")
+          print(f"Key pool warm time: {warm_ms:.1f}ms for {pool_size} keys")
 
-          # Benchmark signing throughput
           from collections import deque
           key_ring = deque(keys * (N // pool_size + 1))
           latencies = []
@@ -56,14 +54,14 @@ jobs:
           p95 = latencies[int(N*0.95)]
           p99 = latencies[int(N*0.99)]
 
-          print(f"⚡ Signing throughput: {ops_sec:.0f} ops/sec")
-          print(f"📊 p50: {p50:.3f}ms | p95: {p95:.3f}ms | p99: {p99:.3f}ms")
-          print(f"🎯 Total {N} signs in {total*1000:.0f}ms")
+          print(f"Signing throughput: {ops_sec:.0f} ops/sec")
+          print(f"p50: {p50:.3f}ms | p95: {p95:.3f}ms | p99: {p99:.3f}ms")
+          print(f"Total {N} signs in {total*1000:.0f}ms")
 
           score = 'QUANTUM' if ops_sec > 5000 and p99 < 1 else \
                   'HYPERSONIC' if ops_sec > 1000 and p99 < 5 else \
                   'SUPERSONIC' if ops_sec > 100 and p99 < 50 else 'CRUISE'
-          print(f"\n🔥 Speed score: {score}")
+          print(f"Speed score: {score}")
           EOF
 
       - name: Benchmark HKDF-SHA3-256 derivation speed
@@ -83,60 +81,8 @@ jobs:
               latencies.append((time.monotonic()-t0)*1000)
           total = time.monotonic()-t_start
           latencies.sort()
-          print(f"⚡ HKDF-SHA3-256: {N/total:.0f} derivations/sec")
-          print(f"📊 p50: {latencies[int(N*0.5)]:.4f}ms | p99: {latencies[int(N*0.99)]:.4f}ms")
-          EOF
-
-      - name: Benchmark holographic Merkle speed
-        run: |
-          python - <<'EOF'
-          import time, os, hashlib, json
-
-          N = 50000
-          systems = ['github','notion','linear','stripe','railway','vercel','postgres','redis','kafka']
-          latencies = []
-          for _ in range(N):
-              state = {s: {"ts": time.time(), "rand": os.urandom(4).hex()} for s in systems}
-              t0 = time.monotonic()
-              leaves = [hashlib.sha3_256(f"{k}:{json.dumps(v)}".encode()).hexdigest() for k,v in sorted(state.items())]
-              while len(leaves)>1:
-                  if len(leaves)%2: leaves.append(leaves[-1])
-                  leaves=[hashlib.sha3_256((leaves[i]+leaves[i+1]).encode()).hexdigest() for i in range(0,len(leaves),2)]
-              latencies.append((time.monotonic()-t0)*1000)
-          total = sum(latencies)/1000
-          latencies.sort()
-          print(f"⚡ Holographic Merkle: {N/total:.0f} roots/sec ({len(systems)}-system tree)")
-          print(f"📊 p50: {latencies[int(N*0.5)]:.4f}ms | p99: {latencies[int(N*0.99)]:.4f}ms")
-          EOF
-
-      - name: Benchmark priority event bus throughput
-        run: |
-          python - <<'EOF'
-          import time, heapq, os
-          from dataclasses import dataclass, field
-
-          @dataclass(order=True)
-          class Task:
-              priority: int
-              scheduled_at: float
-              task_id: str = field(compare=False)
-
-          N = 100000
-          heap = []
-          t0 = time.monotonic()
-          for i in range(N):
-              heapq.heappush(heap, Task(i%5, time.monotonic(), f"task-{i}"))
-          push_time = (time.monotonic()-t0)*1000
-
-          t0 = time.monotonic()
-          popped = 0
-          while heap:
-              heapq.heappop(heap)
-              popped += 1
-          pop_time = (time.monotonic()-t0)*1000
-
-          print(f"⚡ Priority heap: {N/(push_time/1000):.0f} pushes/sec | {N/(pop_time/1000):.0f} pops/sec")
-          print(f"📊 {N} tasks enqueued in {push_time:.1f}ms, dispatched in {pop_time:.1f}ms")
+          print(f"HKDF-SHA3-256: {N/total:.0f} derivations/sec")
+          print(f"p50: {latencies[int(N*0.5)]:.4f}ms | p99: {latencies[int(N*0.99)]:.4f}ms")
           EOF
 
       - name: Post benchmark summary to Linear
@@ -148,10 +94,10 @@ jobs:
           python - <<'EOF'
           import os,json,urllib.request
           key=os.getenv("LINEAR_API_KEY",""); team=os.getenv("LINEAR_TEAM_ID",""); url=os.getenv("RUN_URL","")
-          if not key or not team: print("⚠️  Skipping Linear"); exit(0)
+          if not key or not team: print("LINEAR_API_KEY/LINEAR_TEAM_ID not configured — skipping Linear post"); exit(0)
           mutation='mutation C($i:IssueCreateInput!){issueCreate(input:$i){success issue{identifier}}}'
-          variables={"i":{"teamId":team,"title":"⚡ Speed Benchmark — enterprise-unified-platform","description":f"Quantitative speed benchmark: Ed25519, HKDF-SHA3-256, Holographic Merkle, Priority Bus.\n\n[View run]({url})"}}
+          variables={"i":{"teamId":team,"title":"Speed Benchmark — enterprise-unified-platform","description":f"Quantitative speed benchmark: Ed25519, HKDF-SHA3-256.\n\n[View run]({url})"}}
           req=urllib.request.Request("https://api.linear.app/graphql",data=json.dumps({"query":mutation,"variables":variables}).encode(),headers={"Authorization":key,"Content-Type":"application/json"},method="POST")
           with urllib.request.urlopen(req) as r: resp=json.loads(r.read())
-          print(f"✅ Linear: {resp.get('data',{}).get('issueCreate',{}).get('issue',{}).get('identifier','?')}")
+          print(f"Linear: {resp.get('data',{}).get('issueCreate',{}).get('issue',{}).get('identifier','?')}")
           EOF
