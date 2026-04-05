@@ -1,16 +1,21 @@
 """GitHub Webhook Receiver for triggering autonomous sync."""
 
-from fastapi import FastAPI, Request, Header, HTTPException
 import hmac
 import hashlib
 import json
 import logging
+import os
 from typing import Optional
 from datetime import datetime
 import asyncio
+
+import stripe
+from fastapi import FastAPI, Request, Header, HTTPException
 from sync_engine import AutonomousSyncEngine
 
 logger = logging.getLogger(__name__)
+
+STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET')
 
 app = FastAPI(title="GitHub Webhook Receiver")
 engine = AutonomousSyncEngine()
@@ -63,26 +68,11 @@ async def github_webhook(
     return {"status": "received", "event": event_type}
 
 
-@app.get("/health")
-async def health():
-    """Health check endpoint."""
-    return {"status": "healthy", "service": "github-webhook-receiver"}
-
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=9000)
-    
-
-# STRIPE PAYMENT WEBHOOK
-import os, stripe
-STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET')
-if not STRIPE_WEBHOOK_SECRET:
-    raise RuntimeError("STRIPE_WEBHOOK_SECRET environment variable is required for Stripe webhooks")
-PRODUCT_MAP = {'prod_U4vmR3sBAvRGnq': 'AI Deal Desk', 'prod_U4vqLmVcFl5Byi': 'SEO Content Factory', 'prod_U4vrM38MgRbD59': 'Churn Predictor', 'prod_U4vsAib9kMWgV4': 'Smart Contract Auditor'}
-
 @app.post('/webhook/stripe')
 async def stripe_webhook(request: Request):
+    """Receive and process Stripe payment webhook events."""
+    if not STRIPE_WEBHOOK_SECRET:
+        raise HTTPException(status_code=503, detail='Stripe webhook not configured')
     payload = await request.body()
     sig = request.headers.get('stripe-signature')
     try:
@@ -98,3 +88,14 @@ async def stripe_webhook(request: Request):
             email = f"{local[:2]}***@{domain}"
         logger.info("PAYMENT: %s paid $%.2f", email, amount)
     return {'status': 'ok'}
+
+
+@app.get("/health")
+async def health():
+    """Health check endpoint."""
+    return {"status": "healthy", "service": "github-webhook-receiver"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=9000)
