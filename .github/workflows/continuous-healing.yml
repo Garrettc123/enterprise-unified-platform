@@ -1,10 +1,11 @@
 name: Continuous Healing
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '0 3 * * *'
+  workflow_dispatch:
 jobs:
   heal:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: echo "🏥 System health check"
+      - run: echo "System health check — $(date -u)"

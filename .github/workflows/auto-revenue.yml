@@ -1,16 +1,6 @@
-# =============================================================================
-# Auto Revenue — Fully Autonomous Revenue Pipeline
-# =============================================================================
-# Three triggers:
-#   1. pull_request (ci check): auto-merges feat/revenue-* PR when all checks pass
-#   2. schedule (hourly cron): runs the RevenueAutomationAgent cycle
-#   3. workflow_run: fires deploy-revenue.yml after a successful merge
-# =============================================================================
-
-name: 🤖 Auto Revenue
+name: Auto Revenue
 
 on:
-  # Trigger 1 — React to CI check completions on revenue PRs
   pull_request:
     branches: [main]
     paths:
@@ -18,11 +8,6 @@ on:
       - "backend/revenue_agent.py"
       - "backend/tests/test_revenue.py"
 
-  # Trigger 2 — Hourly revenue agent execution
-  schedule:
-    - cron: "0 * * * *"   # every hour on the hour
-
-  # Trigger 3 — Manual override
   workflow_dispatch:
     inputs:
       mode:
@@ -37,11 +22,8 @@ permissions:
   checks: read
 
 jobs:
-  # ---------------------------------------------------------------------------
-  # Job 1: Auto-merge revenue PR when all checks pass
-  # ---------------------------------------------------------------------------
   auto-merge-revenue-pr:
-    name: "🔀 Auto-Merge Revenue PR"
+    name: "Auto-Merge Revenue PR"
     runs-on: ubuntu-latest
     if: |
       github.event_name == 'pull_request' ||
@@ -57,7 +39,6 @@ jobs:
         run: |
           PR_NUMBER=${{ github.event.pull_request.number }}
           if [ -z "$PR_NUMBER" ]; then
-            # workflow_dispatch — find the open revenue PR
             PR_NUMBER=$(gh pr list --head "feat/revenue-engine" --json number --jq '.[0].number')
           fi
 
@@ -69,7 +50,6 @@ jobs:
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
           echo "Watching PR #$PR_NUMBER for green checks..."
 
-          # Poll up to 10 minutes (30s intervals)
           for i in $(seq 1 20); do
             STATUS=$(gh pr checks $PR_NUMBER --json name,state --jq '[.[] | select(.state != "SUCCESS" and .state != "SKIPPED")] | length')
             TOTAL=$(gh pr checks $PR_NUMBER --json name,state --jq 'length')
@@ -81,14 +61,14 @@ jobs:
             fi
 
             if [ "$STATUS" = "0" ]; then
-              echo "✅ All $TOTAL checks passed!"
+              echo "All $TOTAL checks passed!"
               echo "checks_passed=true" >> $GITHUB_OUTPUT
               break
             fi
 
             FAILING=$(gh pr checks $PR_NUMBER --json name,state --jq '[.[] | select(.state == "FAILURE")] | length')
             if [ "$FAILING" -gt "0" ]; then
-              echo "❌ $FAILING check(s) failed — aborting auto-merge."
+              echo "$FAILING check(s) failed — aborting auto-merge."
               echo "checks_passed=false" >> $GITHUB_OUTPUT
               exit 1
             fi
@@ -110,30 +90,13 @@ jobs:
             --delete-branch \
             --subject "$TITLE" \
             --body "Auto-merged by auto-revenue.yml after all checks passed. Commit: ${{ github.sha }}"
-          echo "✅ PR #$PR_NUMBER merged to main."
+          echo "PR #$PR_NUMBER merged to main."
 
-      - name: Write merge summary
-        if: always()
-        run: |
-          cat >> $GITHUB_STEP_SUMMARY <<EOF
-          ## 🔀 Auto-Merge Result
-          | Field | Value |
-          |---|---|
-          | PR | #${{ steps.wait-checks.outputs.pr_number }} |
-          | Checks Passed | ${{ steps.wait-checks.outputs.checks_passed }} |
-          | Actor | ${{ github.actor }} |
-          | Timestamp | $(date -u +"%Y-%m-%dT%H:%M:%SZ") |
-          EOF
-
-  # ---------------------------------------------------------------------------
-  # Job 2: Hourly Revenue Agent Cycle
-  # ---------------------------------------------------------------------------
   revenue-agent-cycle:
-    name: "💰 Revenue Agent Cycle"
+    name: "Revenue Agent Cycle"
     runs-on: ubuntu-latest
     if: |
-      github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && (inputs.mode == 'agent-cycle' || inputs.mode == 'full'))
+      github.event_name == 'workflow_dispatch' && (inputs.mode == 'agent-cycle' || inputs.mode == 'full')
 
     steps:
       - uses: actions/checkout@v4
@@ -153,6 +116,11 @@ jobs:
           LINEAR_TEAM_ID: ${{ secrets.LINEAR_TEAM_ID }}
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
         run: |
+          if [ -z "$STRIPE_SECRET_KEY" ]; then
+            echo "STRIPE_SECRET_KEY not configured — skipping revenue agent cycle"
+            exit 0
+          fi
+
           python - <<'PYEOF'
           import asyncio, sys, json
           sys.path.insert(0, ".")
@@ -161,12 +129,11 @@ jobs:
           )
           import time
 
-          # --- Sample data (replace with real DB query in production)
           leads = [
               Lead(id="L1", email="demo@bigcorp.com", company_size=250,
                    monthly_budget_usd=2500, intent_signals=3, source="referral"),
           ]
-          accounts = []  # Pull from DB/Stripe in production
+          accounts = []
           history = [RevenueSnapshot(month=int(time.time()) - i*2592000, mrr=1000+i*150)
                      for i in range(6)]
 
@@ -177,36 +144,14 @@ jobs:
 
           print(json.dumps(result, indent=2))
 
-          # Write to GitHub output
           with open("agent_result.json", "w") as f:
               json.dump(result, f)
           PYEOF
 
       - name: Upload agent result
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: revenue-agent-cycle-${{ github.run_number }}
           path: agent_result.json
           retention-days: 30
-
-      - name: Write agent summary
-        run: |
-          RESULT=$(cat agent_result.json)
-          MRR=$(echo $RESULT | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('forecast',{}).get('forecast_mrr',0))")
-          GROWTH=$(echo $RESULT | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('forecast',{}).get('growth_rate_pct',0))")
-          HOT=$(echo $RESULT | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('hot_leads',0))")
-          ALERTS=$(echo $RESULT | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('alerts_fired',0))")
-
-          cat >> $GITHUB_STEP_SUMMARY <<EOF
-          ## 💰 Revenue Agent Cycle — $(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-          | Metric | Value |
-          |---|---|
-          | Forecasted MRR (90d) | \$$MRR |
-          | Growth Rate | ${GROWTH}% |
-          | Hot Leads Detected | $HOT |
-          | Alerts Fired | $ALERTS |
-          | Run | #${{ github.run_number }} |
-
-          > 🤖 Auto-executed by RevenueAutomationAgent cron (every hour)
-          EOF

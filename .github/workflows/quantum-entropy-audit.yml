@@ -1,4 +1,4 @@
-name: 🔬 Daily Quantum Entropy & Crypto Audit
+name: Daily Quantum Entropy & Crypto Audit
 
 on:
   schedule:
@@ -65,10 +65,10 @@ jobs:
           python - <<'EOF'
           import os, json, urllib.request
           key=os.getenv("LINEAR_API_KEY",""); team=os.getenv("LINEAR_TEAM_ID",""); url=os.getenv("RUN_URL","")
-          if not key or not team: print("⚠️  Skipping Linear"); exit(0)
+          if not key or not team: print("LINEAR_API_KEY/LINEAR_TEAM_ID not configured — skipping Linear post"); exit(0)
           mutation='mutation C($i:IssueCreateInput!){issueCreate(input:$i){success issue{identifier}}}'
-          variables={"i":{"teamId":team,"title":"🔬 Daily Crypto Audit — enterprise-unified-platform","description":f"[View run]({url})"}}
+          variables={"i":{"teamId":team,"title":"Daily Crypto Audit — enterprise-unified-platform","description":f"[View run]({url})"}}
           req=urllib.request.Request("https://api.linear.app/graphql",data=json.dumps({"query":mutation,"variables":variables}).encode(),headers={"Authorization":key,"Content-Type":"application/json"},method="POST")
           with urllib.request.urlopen(req) as r: resp=json.loads(r.read())
-          print(f"✅ Linear: {resp.get('data',{}).get('issueCreate',{}).get('issue',{}).get('identifier','?')}")
+          print(f"Linear: {resp.get('data',{}).get('issueCreate',{}).get('issue',{}).get('identifier','?')}")
           EOF

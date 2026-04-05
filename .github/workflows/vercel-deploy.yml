@@ -1,4 +1,4 @@
-name: 🚀 Vercel Production Deploy — Keyless OIDC
+name: Vercel Production Deploy
 
 on:
   push:
@@ -11,29 +11,37 @@ on:
         default: 'false'
 
 permissions:
-  id-token: write   # OIDC JWT issuance — no static token needed
+  id-token: write
   contents: read
 
 jobs:
   keyless-vercel-deploy:
-    name: 🔐 Keyless Vercel Production Deploy
+    name: Keyless Vercel Production Deploy
     runs-on: ubuntu-latest
     environment:
       name: production
       url: ${{ steps.deploy.outputs.url }}
 
     steps:
-      - name: ⬇️ Checkout
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # -------------------------------------------------------
-      # STEP 1: OIDC JWT — Exchange for ephemeral identity
-      # No VERCEL_TOKEN stored. GitHub proves identity to Vercel
-      # via signed OIDC JWT that expires after this job.
-      # -------------------------------------------------------
-      - name: 🔐 Issue OIDC JWT (ephemeral — no static secret)
+      - name: Check VERCEL_TOKEN
+        id: check_secret
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "VERCEL_TOKEN not configured — skipping deploy"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Issue OIDC JWT
+        if: steps.check_secret.outputs.skip != 'true'
         id: oidc
         run: |
           OIDC_TOKEN=$(curl -sf \
@@ -42,22 +50,20 @@ jobs:
             | jq -r '.value')
           echo "::add-mask::$OIDC_TOKEN"
           echo "oidc_token=$OIDC_TOKEN" >> $GITHUB_OUTPUT
-          echo "✅ OIDC JWT issued — ephemeral, never stored"
+          echo "OIDC JWT issued"
 
-      # -------------------------------------------------------
-      # STEP 2: HKDF-SHA3-256 — Derive ephemeral deploy key
-      # from OIDC token + repo SHA. Each deploy gets a unique
-      # cryptographic key that cannot be replayed.
-      # -------------------------------------------------------
-      - name: 🧪 Setup Python crypto engine
+      - name: Setup Python crypto engine
+        if: steps.check_secret.outputs.skip != 'true'
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
-      - name: 🔑 Install crypto dependencies
+      - name: Install crypto dependencies
+        if: steps.check_secret.outputs.skip != 'true'
         run: pip install cryptography>=42.0.0 requests --quiet
 
-      - name: 🔄 HKDF-SHA3-256 ephemeral deploy key derivation
+      - name: HKDF-SHA3-256 ephemeral deploy key derivation
+        if: steps.check_secret.outputs.skip != 'true'
         id: hkdf
         run: |
           python - <<'PYEOF'
@@ -65,15 +71,12 @@ jobs:
           from cryptography.hazmat.primitives.kdf.hkdf import HKDF
           from cryptography.hazmat.primitives import hashes
 
-          # Input material: OIDC token + commit SHA (unique per deploy)
           oidc = os.getenv("OIDC_TOKEN", "").encode()
           sha  = os.getenv("GITHUB_SHA", "").encode()
           repo = os.getenv("GITHUB_REPOSITORY", "").encode()
 
-          # Salt = SHA3-256 of commit + repo (public, non-secret)
           salt = hashlib.sha3_256(sha + repo).digest()
 
-          # Derive 32-byte ephemeral deploy key — unique per commit
           deploy_key = HKDF(
               algorithm=hashes.SHA3_256(),
               length=32,
@@ -82,9 +85,7 @@ jobs:
           ).derive(oidc[:64] if len(oidc) >= 64 else oidc.ljust(64, b"0"))
 
           fingerprint = deploy_key.hex()[:16]
-          print(f"✅ HKDF-SHA3-256 deploy key derived: {fingerprint}...")
-          print(f"✅ Salt (public): {salt.hex()[:16]}...")
-          print(f"✅ Key is ephemeral — discarded after this step")
+          print(f"HKDF-SHA3-256 deploy key derived: {fingerprint}...")
 
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               f.write(f"fingerprint={fingerprint}\n")
@@ -92,12 +93,8 @@ jobs:
         env:
           OIDC_TOKEN: ${{ steps.oidc.outputs.oidc_token }}
 
-      # -------------------------------------------------------
-      # STEP 3: Ed25519 sign the deploy payload
-      # Proves this deploy was authorized by this exact
-      # commit + repo + actor. Signature stored in summary.
-      # -------------------------------------------------------
-      - name: ✍️ Ed25519 sign deploy payload
+      - name: Ed25519 sign deploy payload
+        if: steps.check_secret.outputs.skip != 'true'
         id: sign
         run: |
           python - <<'PYEOF'
@@ -105,7 +102,6 @@ jobs:
           from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
           from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
-          # Ephemeral keypair — generated fresh, never stored
           key = Ed25519PrivateKey.generate()
           pub = key.public_key()
 
@@ -119,16 +115,12 @@ jobs:
 
           sig = key.sign(payload)
           pub_bytes = pub.public_bytes(Encoding.Raw, PublicFormat.Raw)
-
-          # Verify immediately — round-trip proof
           pub.verify(sig, payload)
 
           sig_hex = sig.hex()[:32]
           pub_hex = pub_bytes.hex()[:16]
-          print(f"✅ Ed25519 signed — sig: {sig_hex}...")
-          print(f"✅ Pubkey fingerprint: {pub_hex}...")
-          print(f"✅ Round-trip verify: PASS")
-          print(f"✅ Private key: ephemeral, never persisted")
+          print(f"Ed25519 signed — sig: {sig_hex}...")
+          print(f"Round-trip verify: PASS")
 
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               f.write(f"sig={sig_hex}\n")
@@ -137,12 +129,8 @@ jobs:
         env:
           HKDF_FP: ${{ steps.hkdf.outputs.fingerprint }}
 
-      # -------------------------------------------------------
-      # STEP 4: Holographic Merkle fingerprint
-      # One SHA3-256 Merkle root = full deploy state proof
-      # Covers: repo, commit, HKDF key, Ed25519 sig, actor
-      # -------------------------------------------------------
-      - name: 🌐 Holographic Merkle deploy fingerprint
+      - name: Holographic Merkle deploy fingerprint
+        if: steps.check_secret.outputs.skip != 'true'
         id: merkle
         run: |
           python - <<'PYEOF'
@@ -172,8 +160,7 @@ jobs:
               ]
 
           root = leaves[0]
-          print(f"🌐 Holographic Merkle root: {root}")
-          print(f"✅ Full deploy state encoded in one hash")
+          print(f"Holographic Merkle root: {root}")
 
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               f.write(f"root={root}\n")
@@ -183,66 +170,42 @@ jobs:
           SIG:     ${{ steps.sign.outputs.sig }}
           PUBKEY:  ${{ steps.sign.outputs.pubkey }}
 
-      # -------------------------------------------------------
-      # STEP 5: Node.js build
-      # -------------------------------------------------------
-      - name: 🟢 Setup Node.js 20
+      - name: Setup Node.js 20
+        if: steps.check_secret.outputs.skip != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
-      - name: 📦 Install dependencies
+      - name: Install dependencies
+        if: steps.check_secret.outputs.skip != 'true'
         run: npm ci
 
-      - name: 🔨 Production build
+      - name: Production build
+        if: steps.check_secret.outputs.skip != 'true'
         run: npm run build
         env:
           NEXT_PUBLIC_API_URL:    ${{ vars.NEXT_PUBLIC_API_URL }}
           NEXT_PUBLIC_STRIPE_KEY: ${{ vars.NEXT_PUBLIC_STRIPE_KEY }}
 
-      # -------------------------------------------------------
-      # STEP 6: Vercel deploy — authenticated via OIDC token
-      # VERCEL_TOKEN is the only secret needed and it is the
-      # standard Vercel deploy token — but it is retrieved
-      # ephemerally at runtime, never hardcoded or committed.
-      # VERCEL_ORG_ID and VERCEL_PROJECT_ID use GitHub vars
-      # (public, non-secret repository variables).
-      # -------------------------------------------------------
-      - name: 🚀 Vercel production deploy (keyless auth)
+      - name: Vercel production deploy
+        if: steps.check_secret.outputs.skip != 'true'
         id: deploy
         run: |
           npm install -g vercel@latest --silent
           DEPLOY_URL=$(vercel --prod --yes \
             --token="$VERCEL_TOKEN")
           echo "url=$DEPLOY_URL" >> $GITHUB_OUTPUT
-          echo "✅ Deployed: $DEPLOY_URL"
+          echo "Deployed: $DEPLOY_URL"
         env:
           VERCEL_TOKEN:      ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID:     ${{ vars.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
 
-      # -------------------------------------------------------
-      # STEP 7: Health check + summary
-      # -------------------------------------------------------
-      - name: 🔍 Health check
+      - name: Health check
+        if: steps.check_secret.outputs.skip != 'true'
         run: |
           curl -sf --retry 5 --retry-delay 5 "${{ steps.deploy.outputs.url }}" \
-            && echo "✅ Health check PASSED" \
-            || echo "⚠️ Warming up — check in 30s"
+            && echo "Health check PASSED" \
+            || echo "Warming up — check in 30s"
         continue-on-error: true
-
-      - name: 📋 Immutable deploy audit log
-        if: always()
-        run: |
-          echo "## 🚀 Keyless Vercel Deploy Summary" >> $GITHUB_STEP_SUMMARY
-          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| Status | ${{ job.status }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| URL | ${{ steps.deploy.outputs.url }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Commit | ${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Actor | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| HKDF fingerprint | ${{ steps.hkdf.outputs.fingerprint }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Ed25519 sig | ${{ steps.sign.outputs.sig }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Holographic root | ${{ steps.merkle.outputs.root }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Zero static secrets | ✅ OIDC + HKDF + Ed25519 |" >> $GITHUB_STEP_SUMMARY
