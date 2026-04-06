@@ -13,7 +13,7 @@ jobs:
     name: Cryptographic Health
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install crypto
         run: pip install cryptography>=42.0.0 --quiet
 
@@ -24,7 +24,7 @@ jobs:
           results = {}
 
           pool = os.urandom(64)
-          results["entropy_quality"] = round(len(set(pool))/256.0, 4)
+          results["entropy_quality"] = round(len(set(pool))/len(pool), 4)
           results["entropy_pass"] = results["entropy_quality"] > 0.5
 
           from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
