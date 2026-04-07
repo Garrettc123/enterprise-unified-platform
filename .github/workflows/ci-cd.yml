@@ -60,7 +60,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install Node Dependencies
-        run: cd frontend && npm install
+        run: cd frontend && npm install --legacy-peer-deps
 
       - name: Install Python Dependencies
         run: |
@@ -96,7 +96,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: cd frontend && npm install
+      - run: cd frontend && npm install --legacy-peer-deps
       - run: cd frontend && npm run lint 2>/dev/null || echo "No lint script"
       - run: cd frontend && npm run type-check 2>/dev/null || echo "No type-check script"
       - run: pip install flake8 black mypy 2>/dev/null || true
