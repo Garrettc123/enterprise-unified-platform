@@ -1,23 +1,16 @@
-[build-system]
-requires = ["setuptools>=69.0", "wheel"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "enterprise-unified-platform"
 version = "2.0.0"
 description = "Enterprise Platform - AI-Powered Multi-System Integration"
-readme = "README.md"
 requires-python = ">=3.11"
 authors = [
     { name = "Garrett Carrol", email = "garrett@enterprise.dev" }
 ]
 license = { text = "MIT" }
-keywords = ["enterprise", "platform", "integration", "fastapi"]
 
 dependencies = [
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
-    "pydantic>=2.0.0",
     "httpx>=0.25.0",
     "python-dotenv>=1.0.0",
     "requests>=2.31.0",
@@ -27,7 +20,3 @@ dependencies = [
 
 [project.urls]
 Repository = "https://github.com/Garrettc123/enterprise-unified-platform"
-
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["api*", "backend*"]
