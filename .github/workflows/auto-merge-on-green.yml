@@ -1,0 +1,81 @@
+# =============================================================================
+# Auto-Merge on Green — Generic re-usable auto-merge for any feature branch
+# =============================================================================
+# Called by other workflows via workflow_call.
+# Can also be triggered manually against any open PR.
+# =============================================================================
+
+name: ✅ Auto-Merge on Green
+
+on:
+  workflow_call:
+    inputs:
+      pr_number:
+        required: true
+        type: number
+        description: PR number to auto-merge
+      merge_method:
+        required: false
+        type: string
+        default: squash
+        description: "merge | squash | rebase"
+    secrets:
+      token:
+        required: true
+
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        required: true
+        type: number
+        description: PR number to auto-merge
+      merge_method:
+        required: false
+        type: choice
+        options: [squash, merge, rebase]
+        default: squash
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  merge:
+    name: "Auto-Merge PR #${{ inputs.pr_number }}"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Poll checks and merge
+        env:
+          GH_TOKEN: ${{ secrets.token || secrets.GITHUB_TOKEN }}
+        run: |
+          PR=${{ inputs.pr_number }}
+          METHOD=${{ inputs.merge_method || 'squash' }}
+          REPO=${{ github.repository }}
+
+          echo "Waiting for checks on PR #$PR in $REPO..."
+
+          for i in $(seq 1 24); do  # 24 x 30s = 12 minutes max
+            PENDING=$(gh pr checks $PR --repo $REPO --json state \
+              --jq '[.[] | select(.state == "PENDING" or .state == "IN_PROGRESS")] | length')
+            FAILED=$(gh pr checks $PR --repo $REPO --json state \
+              --jq '[.[] | select(.state == "FAILURE")] | length')
+
+            if [ "$FAILED" -gt 0 ]; then
+              echo "::error::$FAILED check(s) failed on PR #$PR — NOT merging."
+              exit 1
+            fi
+
+            if [ "$PENDING" = "0" ]; then
+              echo "All checks green. Merging PR #$PR ($METHOD)..."
+              gh pr merge $PR --repo $REPO --$METHOD --delete-branch
+              echo "✅ Merged PR #$PR"
+              exit 0
+            fi
+
+            echo "Attempt $i: $PENDING checks still pending — waiting 30s..."
+            sleep 30
+          done
+
+          echo "::error::Timed out waiting for checks on PR #$PR."
+          exit 1

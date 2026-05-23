@@ -1,0 +1,110 @@
+name: Deploy Revenue Engine
+
+on:
+  push:
+    branches: [main, "feat/revenue-*"]
+    paths:
+      - "backend/routers/revenue.py"
+      - "backend/revenue_agent.py"
+      - "backend/tests/test_revenue.py"
+      - ".github/workflows/deploy-revenue.yml"
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [production, staging]
+        default: production
+        description: Deploy target
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  keyless-proof:
+    name: "Keyless Deploy Proof"
+    uses: ./.github/workflows/keyless-toolkit.yml
+    with:
+      action: "revenue-deploy"
+      target: ${{ inputs.environment || 'production' }}
+
+  test-revenue:
+    name: "Test Revenue Module"
+    runs-on: ubuntu-latest
+    needs: keyless-proof
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install fastapi uvicorn pydantic httpx pytest pytest-asyncio cryptography --quiet
+
+      - name: Run revenue tests
+        run: pytest backend/tests/test_revenue.py -v --tb=short
+
+  deploy:
+    name: "Deploy to Vercel"
+    runs-on: ubuntu-latest
+    needs: [keyless-proof, test-revenue]
+    environment: ${{ inputs.environment || 'production' }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check VERCEL_TOKEN
+        id: check_secret
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "VERCEL_TOKEN not configured — skipping deploy"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Install Vercel CLI
+        if: steps.check_secret.outputs.skip != 'true'
+        run: npm install -g vercel@latest --quiet
+
+      - name: Deploy
+        if: steps.check_secret.outputs.skip != 'true'
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ "${{ inputs.environment }}" = "staging" ]; then
+            URL=$(vercel deploy --token $VERCEL_TOKEN 2>&1 | tail -1)
+          else
+            URL=$(vercel deploy --prod --token $VERCEL_TOKEN 2>&1 | tail -1)
+          fi
+          echo "deploy_url=$URL" >> $GITHUB_OUTPUT
+          echo "Deployed to: $URL"
+
+      - name: Health check
+        if: steps.check_secret.outputs.skip != 'true'
+        id: health
+        run: |
+          URL="${{ steps.deploy.outputs.deploy_url }}"
+          echo "Checking $URL/revenue/health ..."
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL/revenue/health" || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "health=pass" >> $GITHUB_OUTPUT
+              echo "Health check passed (attempt $i)"
+              break
+            fi
+            echo "Attempt $i: HTTP $STATUS — retrying in 10s..."
+            sleep 10
+          done
+          if [ "${STATUS}" != "200" ]; then
+            echo "health=fail" >> $GITHUB_OUTPUT
+            echo "::error::Revenue health check FAILED after 5 attempts"
+            exit 1
+          fi

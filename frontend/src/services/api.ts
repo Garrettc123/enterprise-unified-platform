@@ -120,6 +120,42 @@ export const analyticsApi = {
     if (!response.ok) throw new Error('Failed to fetch analytics')
     return response.json()
   },
+
+  getProjectStatusBreakdown: async (token: string, organizationId: number) => {
+    const response = await fetch(
+      `${API_BASE_URL}/analytics/projects/status-breakdown?organization_id=${organizationId}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    if (!response.ok) throw new Error('Failed to fetch project status breakdown')
+    return response.json()
+  },
+
+  getTaskPriorityDistribution: async (token: string, organizationId: number) => {
+    const response = await fetch(
+      `${API_BASE_URL}/analytics/tasks/priority-distribution?organization_id=${organizationId}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    if (!response.ok) throw new Error('Failed to fetch task priority distribution')
+    return response.json()
+  },
+
+  getTaskStatusTrend: async (token: string, organizationId: number, days: number = 30) => {
+    const response = await fetch(
+      `${API_BASE_URL}/analytics/tasks/status-trend?organization_id=${organizationId}&days=${days}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    if (!response.ok) throw new Error('Failed to fetch task status trend')
+    return response.json()
+  },
+
+  getTeamWorkload: async (token: string, organizationId: number) => {
+    const response = await fetch(
+      `${API_BASE_URL}/analytics/team/workload?organization_id=${organizationId}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    if (!response.ok) throw new Error('Failed to fetch team workload')
+    return response.json()
+  },
 }
 
 // Notifications API

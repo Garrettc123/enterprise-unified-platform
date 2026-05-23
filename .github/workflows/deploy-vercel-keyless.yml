@@ -1,0 +1,86 @@
+name: Keyless Vercel Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [production, preview]
+        default: production
+        description: Deploy target
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  keyless-proof:
+    name: "Keyless Deploy Proof"
+    uses: ./.github/workflows/keyless-toolkit.yml
+    with:
+      action: "vercel-deploy"
+      target: ${{ inputs.environment || 'production' }}
+
+  deploy-vercel:
+    name: "Deploy to Vercel"
+    runs-on: ubuntu-latest
+    needs: keyless-proof
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check VERCEL_TOKEN
+        id: check_secret
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "VERCEL_TOKEN not configured — skipping deploy"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Install Vercel CLI
+        if: steps.check_secret.outputs.skip != 'true'
+        run: npm install -g vercel@latest --quiet
+
+      - name: Deploy
+        if: steps.check_secret.outputs.skip != 'true'
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ "${{ inputs.environment }}" = "preview" ]; then
+            URL=$(vercel deploy --token "$VERCEL_TOKEN" 2>&1 | tail -1)
+          else
+            URL=$(vercel deploy --prod --token "$VERCEL_TOKEN" 2>&1 | tail -1)
+          fi
+          echo "deploy_url=$URL" >> $GITHUB_OUTPUT
+          echo "Deployed to: $URL"
+
+      - name: Health check
+        if: steps.check_secret.outputs.skip != 'true'
+        id: health
+        run: |
+          URL="${{ steps.deploy.outputs.deploy_url }}"
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL/health" || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "health=pass" >> $GITHUB_OUTPUT
+              echo "Health check passed (attempt $i)"
+              break
+            fi
+            echo "Attempt $i: HTTP $STATUS — retrying in 10s..."
+            sleep 10
+          done
+          if [ "$STATUS" != "200" ]; then
+            echo "health=fail" >> $GITHUB_OUTPUT
+            echo "::error::Health check FAILED after 5 attempts"
+            exit 1
+          fi

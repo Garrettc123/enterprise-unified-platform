@@ -1,16 +1,21 @@
 """GitHub Webhook Receiver for triggering autonomous sync."""
 
-from fastapi import FastAPI, Request, Header, HTTPException
 import hmac
 import hashlib
 import json
 import logging
+import os
 from typing import Optional
 from datetime import datetime
 import asyncio
+
+import stripe
+from fastapi import FastAPI, Request, Header, HTTPException
 from sync_engine import AutonomousSyncEngine
 
 logger = logging.getLogger(__name__)
+
+STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET')
 
 app = FastAPI(title="GitHub Webhook Receiver")
 engine = AutonomousSyncEngine()
@@ -61,6 +66,28 @@ async def github_webhook(
         }
 
     return {"status": "received", "event": event_type}
+
+
+@app.post('/webhook/stripe')
+async def stripe_webhook(request: Request):
+    """Receive and process Stripe payment webhook events."""
+    if not STRIPE_WEBHOOK_SECRET:
+        raise HTTPException(status_code=503, detail='Stripe webhook not configured')
+    payload = await request.body()
+    sig = request.headers.get('stripe-signature')
+    try:
+        event = stripe.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
+    except (stripe.error.SignatureVerificationError, ValueError):
+        raise HTTPException(status_code=400, detail='Invalid signature')
+    if event['type'] == 'payment_intent.succeeded':
+        pi = event['data']['object']
+        email = pi.get('receipt_email', 'unknown')
+        amount = pi.get('amount', 0) / 100
+        if email != "unknown" and "@" in email:
+            local, domain = email.split("@", 1)
+            email = f"{local[:2]}***@{domain}"
+        logger.info("PAYMENT: %s paid $%.2f", email, amount)
+    return {'status': 'ok'}
 
 
 @app.get("/health")
