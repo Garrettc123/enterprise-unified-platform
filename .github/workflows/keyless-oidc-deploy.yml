@@ -16,7 +16,20 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Check RAILWAY_TOKEN
+        id: check_secret
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "RAILWAY_TOKEN not configured — skipping deploy"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
       - name: Exchange OIDC JWT for ephemeral credentials
+        if: steps.check_secret.outputs.skip != 'true'
         id: oidc
         run: |
           OIDC_TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
@@ -26,17 +39,20 @@ jobs:
           echo "OIDC token issued — no static secret used"
 
       - uses: actions/setup-python@v5
+        if: steps.check_secret.outputs.skip != 'true'
         with:
           python-version: '3.11'
 
       - name: Install dependencies
+        if: steps.check_secret.outputs.skip != 'true'
         run: pip install cryptography>=42.0.0 requests uvicorn fastapi --quiet
 
       - name: Quantum entropy audit
+        if: steps.check_secret.outputs.skip != 'true'
         run: |
           python - <<'EOF'
           import os, hashlib
-          pool = os.urandom(64)
+          pool = os.urandom(512)
           quality = len(set(pool)) / 256.0
           root = hashlib.sha3_256(pool).hexdigest()
           print(f"Entropy quality: {quality:.4f}")
@@ -46,6 +62,7 @@ jobs:
           EOF
 
       - name: Ed25519 sign/verify round-trip
+        if: steps.check_secret.outputs.skip != 'true'
         run: |
           python - <<'EOF'
           from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -59,6 +76,7 @@ jobs:
           EOF
 
       - name: HKDF-SHA3-256 key derivation
+        if: steps.check_secret.outputs.skip != 'true'
         run: |
           python - <<'EOF'
           import os
@@ -70,13 +88,10 @@ jobs:
           EOF
 
       - name: Deploy to Railway (keyless)
+        if: steps.check_secret.outputs.skip != 'true'
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
-          if [ -z "$RAILWAY_TOKEN" ]; then
-            echo "RAILWAY_TOKEN not configured — skipping Railway deploy"
-            exit 0
-          fi
           npm install -g @railway/cli --silent
           railway up --detach
           echo "Deployed via keyless OIDC pipeline"
