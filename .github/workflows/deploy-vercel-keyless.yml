@@ -81,5 +81,5 @@ jobs:
           done
           if [ "$STATUS" != "200" ]; then
             echo "health=fail" >> $GITHUB_OUTPUT
-            echo "Health check did not return 200 — check deployment manually"
+            echo "::warning::Health check did not return 200 — check deployment manually"
           fi
