@@ -45,7 +45,7 @@ jobs:
 
       - name: Install dependencies
         if: steps.check_secret.outputs.skip != 'true'
-        run: pip install cryptography>=42.0.0 requests uvicorn fastapi --quiet
+        run: pip install "cryptography>=42.0.0" requests uvicorn fastapi --quiet
 
       - name: Quantum entropy audit
         if: steps.check_secret.outputs.skip != 'true'
