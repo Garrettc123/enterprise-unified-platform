@@ -28,6 +28,9 @@ from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+# APEX Revenue Sync — fires HMAC-secured webhook when Stripe clears payments
+from backend.utils.webhook_client import send_revenue_sync
+
 router = APIRouter(prefix="/revenue", tags=["revenue"])
 
 # ---------------------------------------------------------------------------
@@ -138,6 +141,7 @@ async def stripe_webhook(
     """
     Stripe webhook endpoint. Verifies signature, dispatches event handlers.
     Register this URL in Stripe Dashboard → Webhooks.
+    Fires APEX revenue sync for payment/subscription events.
     """
     payload = await request.body()
     webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
@@ -160,6 +164,9 @@ async def stripe_webhook(
         amount = data.get("amount", 0)
         customer = data.get("customer") or "guest"
         _record_event("payment_succeeded", amount, customer, {"intent_id": data.get("id")})
+        # Sync to APEX Revenue System
+        amount_dollars = amount / 100
+        background_tasks.add_task(send_revenue_sync, amount_dollars, data.get("id"), customer)
 
     # --- Subscription created
     elif etype == "customer.subscription.created":
@@ -167,6 +174,9 @@ async def stripe_webhook(
         customer = data.get("customer", "")
         amount = data.get("plan", {}).get("amount", 0)
         _record_event("subscription_created", amount, customer, {"plan": plan})
+        # Sync to APEX Revenue System
+        amount_dollars = amount / 100
+        background_tasks.add_task(send_revenue_sync, amount_dollars, data.get("id"), customer, plan)
 
     # --- Subscription deleted (churn)
     elif etype == "customer.subscription.deleted":
@@ -179,6 +189,9 @@ async def stripe_webhook(
         customer = data.get("customer", "")
         amount = data.get("amount_paid", 0)
         _record_event("invoice_paid", amount, customer, {"invoice_id": data.get("id")})
+        # Sync to APEX Revenue System
+        amount_dollars = amount / 100
+        background_tasks.add_task(send_revenue_sync, amount_dollars, data.get("id"), customer)
 
     # --- Invoice payment failed
     elif etype == "invoice.payment_failed":
