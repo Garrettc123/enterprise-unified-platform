@@ -121,6 +121,14 @@ export const analyticsApi = {
     return response.json()
   },
 
+  getAdminOverview: async (token: string) => {
+    const response = await fetch(`${API_BASE_URL}/analytics/admin/overview`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to fetch admin analytics')
+    return response.json()
+  },
+
   getProjectStatusBreakdown: async (token: string, organizationId: number) => {
     const response = await fetch(
       `${API_BASE_URL}/analytics/projects/status-breakdown?organization_id=${organizationId}`,
