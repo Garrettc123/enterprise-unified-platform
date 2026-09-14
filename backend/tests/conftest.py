@@ -1,3 +1,15 @@
+import os
+import sys
+
+# The repository contains backend/secrets, which can shadow Python's stdlib
+# `secrets` module when pytest imports FastAPI/Starlette. Load the stdlib
+# module first, then restore the backend path for application imports.
+_BACKEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if _BACKEND_DIR in sys.path:
+    sys.path.remove(_BACKEND_DIR)
+import secrets as _stdlib_secrets  # noqa: F401,E402
+sys.path.insert(0, _BACKEND_DIR)
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
