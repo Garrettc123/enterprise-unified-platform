@@ -1,20 +1,28 @@
 :root {
-  --primary: #3b82f6;
-  --primary-dark: #1e40af;
-  --secondary: #6366f1;
-  --success: #10b981;
-  --warning: #f59e0b;
-  --danger: #ef4444;
-  --gray-50: #f9fafb;
-  --gray-100: #f3f4f6;
-  --gray-200: #e5e7eb;
-  --gray-300: #d1d5db;
-  --gray-400: #9ca3af;
-  --gray-500: #6b7280;
-  --gray-600: #4b5563;
-  --gray-700: #374151;
-  --gray-800: #1f2937;
-  --gray-900: #111827;
+  color-scheme: light;
+  --primary: #7c3aed;
+  --primary-dark: #6025c7;
+  --primary-soft: #f1eaff;
+  --secondary: #a855f7;
+  --success: #059669;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --gray-50: #f7f7fb;
+  --gray-100: #f0f0f6;
+  --gray-200: #e2e3ec;
+  --gray-300: #c9cad8;
+  --gray-400: #999bb0;
+  --gray-500: #73758b;
+  --gray-600: #57596f;
+  --gray-700: #3f4157;
+  --gray-800: #292b3d;
+  --gray-900: #171827;
+  --surface: #ffffff;
+  --border: rgba(35, 29, 67, 0.09);
+  --shadow-sm: 0 2px 8px rgba(31, 24, 58, 0.04);
+  --shadow-md: 0 16px 40px rgba(31, 24, 58, 0.09);
+  --radius-md: 14px;
+  --radius-lg: 20px;
 }
 
 * {
@@ -23,20 +31,27 @@
   box-sizing: border-box;
 }
 
+html {
+  min-width: 320px;
+  scroll-behavior: smooth;
+  background: var(--gray-50);
+}
+
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  min-width: 320px;
+  min-height: 100%;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: var(--gray-50);
+  background: var(--gray-50);
   color: var(--gray-900);
+  line-height: 1.5;
 }
 
 html,
 body,
 #root {
-  height: 100%;
+  min-height: 100%;
 }
 
 a {
@@ -45,16 +60,41 @@ a {
 }
 
 a:hover {
-  text-decoration: underline;
+  color: var(--primary-dark);
 }
 
-button {
-  font-family: inherit;
-  cursor: pointer;
-}
-
+button,
 input,
 textarea,
 select {
-  font-family: inherit;
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 3px solid rgba(124, 58, 237, 0.28);
+  outline-offset: 3px;
+}
+
+::selection {
+  color: #fff;
+  background: var(--primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
