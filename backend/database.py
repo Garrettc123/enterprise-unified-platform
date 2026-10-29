@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncGenerator
 from typing import Any
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import (
@@ -16,10 +17,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.pool import NullPool
 
-# Create declarative base for models
 Base = declarative_base()
-
-# Global engine and session factory
 engine: AsyncEngine | None = None
 async_session_factory: async_sessionmaker[AsyncSession] | None = None
 
@@ -31,8 +29,7 @@ async def get_database_url() -> str:
 
     if secrets_provider and secret_name:
         try:
-            # Import lazily: a missing optional secret-manager adapter must not prevent
-            # the application from importing when DATABASE_URL/DB_* variables are set.
+            # Keep the optional adapter lazy so its absence does not break module import.
             from backend.secrets import get_database_url_from_secrets
 
             secret_url = await get_database_url_from_secrets(
@@ -42,11 +39,9 @@ async def get_database_url() -> str:
             if secret_url:
                 return _async_database_url(secret_url)
         except Exception:
-            # Fall back to environment variables; never log or expose secret values.
+            # Fall back without logging or exposing secret values.
             pass
 
-    # DATABASE_URL is the conventional host-provided connection variable. Prefer it
-    # over assembling a URL from DB_* fields, and normalize PostgreSQL URLs for asyncpg.
     database_url = os.getenv("DATABASE_URL", "").strip()
     if database_url:
         return _async_database_url(database_url)
@@ -60,12 +55,25 @@ async def get_database_url() -> str:
 
 
 def _async_database_url(url: str) -> str:
-    """Normalize PostgreSQL URLs for SQLAlchemy's async engine."""
-    if url.startswith("postgres://"):
-        return "postgresql+asyncpg://" + url[len("postgres://"):]
-    if url.startswith("postgresql://"):
-        return "postgresql+asyncpg://" + url[len("postgresql://"):]
-    return url
+    """Normalize PostgreSQL URL schemes and SSL parameters for the asyncpg driver."""
+    parsed = urlsplit(url)
+    if parsed.scheme in {"postgres", "postgresql"}:
+        parsed = parsed._replace(scheme="postgresql+asyncpg")
+
+    if parsed.scheme != "postgresql+asyncpg":
+        return url
+
+    query_items = parse_qsl(parsed.query, keep_blank_values=True)
+    has_ssl = any(key == "ssl" for key, _ in query_items)
+    normalized_query: list[tuple[str, str]] = []
+    for key, value in query_items:
+        if key == "sslmode":
+            if not has_ssl:
+                normalized_query.append(("ssl", value))
+            continue
+        normalized_query.append((key, value))
+
+    return urlunsplit(parsed._replace(query=urlencode(normalized_query, doseq=True)))
 
 
 async def init_db() -> None:
@@ -73,7 +81,6 @@ async def init_db() -> None:
     global engine, async_session_factory
 
     database_url = await get_database_url()
-
     engine_kwargs: dict[str, Any] = {
         "echo": os.getenv("SQL_ECHO", "false").lower() == "true",
         "pool_pre_ping": True,
@@ -90,7 +97,6 @@ async def init_db() -> None:
         engine_kwargs["pool_recycle"] = int(os.getenv("DB_POOL_RECYCLE", "3600"))
 
     engine = create_async_engine(database_url, **engine_kwargs)
-
     async_session_factory = async_sessionmaker(
         engine,
         class_=AsyncSession,
@@ -108,10 +114,11 @@ async def init_db() -> None:
 
 async def close_db() -> None:
     """Close database connections and dispose the engine."""
-    global engine
+    global engine, async_session_factory
     if engine:
         await engine.dispose()
         engine = None
+    async_session_factory = None
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -131,10 +138,9 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def create_tables() -> None:
-    """Create all database tables. Use Alembic migrations for production."""
+    """Create all tables; use Alembic migrations for production."""
     if engine is None:
         raise RuntimeError("Database not initialized. Call init_db() first.")
-
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
@@ -143,6 +149,5 @@ async def drop_tables() -> None:
     """Drop all tables and delete their data."""
     if engine is None:
         raise RuntimeError("Database not initialized. Call init_db() first.")
-
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
