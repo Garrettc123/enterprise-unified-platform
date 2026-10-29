@@ -15,7 +15,5 @@
       "src": "/(.*)",
       "dest": "api/index.py"
     }
-  ],
-  "buildCommand": "",
-  "installCommand": ""
+  ]
 }
