@@ -1,53 +1,67 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { useNotifications } from '../hooks/useNotifications'
 import './Navbar.css'
 
 function Navbar() {
   const { user, logout } = useAuth()
-  const { unreadCount } = useNotifications()
   const [showDropdown, setShowDropdown] = useState(false)
   const navigate = useNavigate()
+  const location = useLocation()
 
   const handleLogout = () => {
     logout()
     navigate('/login')
   }
 
+  const navItems = [
+    { to: '/dashboard', label: 'Overview' },
+    { to: '/projects', label: 'Projects' },
+    { to: '/tasks', label: 'Tasks' },
+    { to: '/admin', label: 'Admin' },
+  ]
+
   return (
-    <nav className="navbar">
+    <nav className="navbar" aria-label="Main navigation">
       <div className="navbar-brand">
-        <Link to="/dashboard">🚀 Enterprise Platform</Link>
-      </div>
-      <div className="navbar-menu">
-        <Link to="/dashboard" className="nav-link">Dashboard</Link>
-        <Link to="/projects" className="nav-link">Projects</Link>
-        <Link to="/tasks" className="nav-link">Tasks</Link>
-        <Link to="/admin" className="nav-link">Admin</Link>
-      </div>
-      <div className="navbar-end">
-        <Link to="/notifications" className="nav-link notification-link">
-          🔔 {unreadCount > 0 && <span className="badge">{unreadCount}</span>}
+        <Link to="/dashboard">
+          <span className="brand-mark" aria-hidden="true">G</span>
+          <span>Garcar Enterprise</span>
         </Link>
+      </div>
+
+      <div className="navbar-menu">
+        {navItems.map((item) => (
+          <Link
+            key={item.to}
+            to={item.to}
+            className={`nav-link${location.pathname === item.to ? ' active' : ''}`}
+            aria-current={location.pathname === item.to ? 'page' : undefined}
+          >
+            {item.label}
+          </Link>
+        ))}
+      </div>
+
+      <div className="navbar-end">
         <div className="user-menu">
           <button
             className="user-button"
+            type="button"
+            aria-label="Open account menu"
+            aria-expanded={showDropdown}
             onClick={() => setShowDropdown(!showDropdown)}
           >
             {user?.avatar_url ? (
-              <img src={user.avatar_url} alt={user.username} />
+              <img src={user.avatar_url} alt="" />
             ) : (
-              <span>{user?.username?.charAt(0)?.toUpperCase()}</span>
+              <span>{user?.username?.charAt(0)?.toUpperCase() || 'G'}</span>
             )}
           </button>
           {showDropdown && (
             <div className="dropdown-menu">
-              <Link to="/profile" className="dropdown-item">Profile</Link>
-              <Link to="/settings" className="dropdown-item">Settings</Link>
-              <hr />
-              <button onClick={handleLogout} className="dropdown-item logout">
-                Logout
+              <button type="button" onClick={handleLogout} className="dropdown-item logout">
+                Sign out
               </button>
             </div>
           )}
