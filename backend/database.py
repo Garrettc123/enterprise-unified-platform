@@ -14,10 +14,10 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.orm import declarative_base
 from sqlalchemy.pool import NullPool
 
-Base = declarative_base()
+from .models import Base
+
 engine: AsyncEngine | None = None
 async_session_factory: async_sessionmaker[AsyncSession] | None = None
 
@@ -138,7 +138,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def create_tables() -> None:
-    """Create all tables; use Alembic migrations for production."""
+    """Create all model tables; use Alembic migrations for production."""
     if engine is None:
         raise RuntimeError("Database not initialized. Call init_db() first.")
     async with engine.begin() as conn:
@@ -146,7 +146,7 @@ async def create_tables() -> None:
 
 
 async def drop_tables() -> None:
-    """Drop all tables and delete their data."""
+    """Drop all model tables and delete their data."""
     if engine is None:
         raise RuntimeError("Database not initialized. Call init_db() first.")
     async with engine.begin() as conn:
