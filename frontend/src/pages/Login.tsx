@@ -29,7 +29,7 @@ function Login() {
   return (
     <main className="login-container">
       <section className="login-box" aria-labelledby="login-heading">
-        <div className="login-mark" aria-hidden="true">G</div>
+        <img className="login-mark" src="/garcar-logo.svg" alt="" aria-hidden="true" />
         <h1 id="login-heading">Garcar Enterprise</h1>
         <p>Sign in to your operations workspace</p>
 
