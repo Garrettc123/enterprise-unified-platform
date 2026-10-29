@@ -78,7 +78,7 @@ def _register_user(client, username="testuser", email="test@example.com",
                     password="testpass123", full_name="Test User"):
     """Helper to register a user."""
     return client.post(
-        "/register",
+        "/api/auth/register",
         json={
             "username": username,
             "email": email,
@@ -91,7 +91,7 @@ def _register_user(client, username="testuser", email="test@example.com",
 def _login_user(client, username="testuser", password="testpass123"):
     """Helper to login a user and return the response."""
     return client.post(
-        "/login",
+        "/api/auth/login",
         data={"username": username, "password": password},
     )
 
@@ -218,12 +218,12 @@ class TestRegistration:
         assert response.status_code == 422
 
     def test_register_missing_required_fields(self, client):
-        response = client.post("/register", json={})
+        response = client.post("/api/auth/register", json={})
         assert response.status_code == 422
 
     def test_register_without_full_name(self, client):
         response = client.post(
-            "/register",
+            "/api/auth/register",
             json={
                 "username": "nofullname",
                 "email": "nofull@example.com",
@@ -300,19 +300,19 @@ class TestGetCurrentUser:
     def test_get_me_success(self, client):
         _register_user(client)
         headers = _get_auth_header(client)
-        response = client.get("/me", headers=headers)
+        response = client.get("/api/auth/me", headers=headers)
         assert response.status_code == 200
         data = response.json()
         assert data["username"] == "testuser"
         assert data["email"] == "test@example.com"
 
     def test_get_me_no_token(self, client):
-        response = client.get("/me")
+        response = client.get("/api/auth/me")
         assert response.status_code == 401
 
     def test_get_me_invalid_token(self, client):
         headers = {"Authorization": "Bearer invalidtoken"}
-        response = client.get("/me", headers=headers)
+        response = client.get("/api/auth/me", headers=headers)
         assert response.status_code == 401
 
     def test_get_me_expired_token(self, client):
@@ -322,7 +322,7 @@ class TestGetCurrentUser:
             expires_delta=timedelta(seconds=-1),
         )
         headers = {"Authorization": f"Bearer {expired_token}"}
-        response = client.get("/me", headers=headers)
+        response = client.get("/api/auth/me", headers=headers)
         assert response.status_code == 401
 
     def test_get_me_token_missing_sub(self, client):
@@ -332,7 +332,7 @@ class TestGetCurrentUser:
             algorithm=ALGORITHM,
         )
         headers = {"Authorization": f"Bearer {token}"}
-        response = client.get("/me", headers=headers)
+        response = client.get("/api/auth/me", headers=headers)
         assert response.status_code == 401
 
     def test_get_me_user_deleted(self, client, setup_db):
@@ -353,7 +353,7 @@ class TestGetCurrentUser:
 
         asyncio.run(delete_user())
 
-        response = client.get("/me", headers=headers)
+        response = client.get("/api/auth/me", headers=headers)
         assert response.status_code == 401
         assert "User not found" in response.json()["detail"]
 
@@ -369,7 +369,7 @@ class TestAPIKeys:
         _register_user(client)
         headers = _get_auth_header(client)
         response = client.post(
-            "/api-keys",
+            "/api/auth/api-keys",
             json={"name": "my-key"},
             headers=headers,
         )
@@ -384,7 +384,7 @@ class TestAPIKeys:
         headers = _get_auth_header(client)
         expires = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
         response = client.post(
-            "/api-keys",
+            "/api/auth/api-keys",
             json={"name": "expiring-key", "expires_at": expires},
             headers=headers,
         )
@@ -392,28 +392,28 @@ class TestAPIKeys:
         assert response.json()["expires_at"] is not None
 
     def test_create_api_key_unauthenticated(self, client):
-        response = client.post("/api-keys", json={"name": "my-key"})
+        response = client.post("/api/auth/api-keys", json={"name": "my-key"})
         assert response.status_code == 401
 
     def test_create_api_key_missing_name(self, client):
         _register_user(client)
         headers = _get_auth_header(client)
-        response = client.post("/api-keys", json={}, headers=headers)
+        response = client.post("/api/auth/api-keys", json={}, headers=headers)
         assert response.status_code == 422
 
     def test_list_api_keys_empty(self, client):
         _register_user(client)
         headers = _get_auth_header(client)
-        response = client.get("/api-keys", headers=headers)
+        response = client.get("/api/auth/api-keys", headers=headers)
         assert response.status_code == 200
         assert response.json() == []
 
     def test_list_api_keys_after_create(self, client):
         _register_user(client)
         headers = _get_auth_header(client)
-        client.post("/api-keys", json={"name": "key1"}, headers=headers)
-        client.post("/api-keys", json={"name": "key2"}, headers=headers)
-        response = client.get("/api-keys", headers=headers)
+        client.post("/api/auth/api-keys", json={"name": "key1"}, headers=headers)
+        client.post("/api/auth/api-keys", json={"name": "key2"}, headers=headers)
+        response = client.get("/api/auth/api-keys", headers=headers)
         assert response.status_code == 200
         keys = response.json()
         assert len(keys) == 2
@@ -421,7 +421,7 @@ class TestAPIKeys:
         assert names == {"key1", "key2"}
 
     def test_list_api_keys_unauthenticated(self, client):
-        response = client.get("/api-keys")
+        response = client.get("/api/auth/api-keys")
         assert response.status_code == 401
 
     def test_api_keys_isolated_per_user(self, client):
@@ -432,9 +432,9 @@ class TestAPIKeys:
         alice_headers = _get_auth_header(client, username="alice")
         bob_headers = _get_auth_header(client, username="bob")
 
-        client.post("/api-keys", json={"name": "alice-key"}, headers=alice_headers)
+        client.post("/api/auth/api-keys", json={"name": "alice-key"}, headers=alice_headers)
 
-        response = client.get("/api-keys", headers=bob_headers)
+        response = client.get("/api/auth/api-keys", headers=bob_headers)
         assert response.status_code == 200
         assert response.json() == []
 
