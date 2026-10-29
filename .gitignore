@@ -47,10 +47,12 @@ dist/
 *~
 .DS_Store
 
-# Environment
+# Environment files. Keep only the safe example template.
 .env
 .env.local
 .env.*.local
+.env.*
+!.env.example
 
 # Logs
 *.log
