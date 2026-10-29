@@ -1,20 +1,39 @@
 .app-layout {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  min-height: 100vh;
 }
 
 .app-container {
   flex: 1;
-  overflow-y: auto;
-  background-color: var(--gray-50);
+  min-width: 0;
+  overflow-x: hidden;
+  background:
+    radial-gradient(ellipse at 92% 0%, rgba(168, 85, 247, 0.055), transparent 34rem),
+    var(--gray-50);
 }
 
 .loading {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100vh;
-  font-size: 1.2rem;
+  min-height: 55vh;
+  padding: 2rem;
   color: var(--gray-600);
+  font-size: 0.95rem;
+}
+
+.loading::before {
+  width: 18px;
+  height: 18px;
+  margin-right: 0.75rem;
+  border: 2px solid var(--gray-200);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  content: "";
+  animation: loading-spin 0.75s linear infinite;
+}
+
+@keyframes loading-spin {
+  to { transform: rotate(360deg); }
 }
