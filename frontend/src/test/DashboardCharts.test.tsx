@@ -60,7 +60,7 @@ describe('DashboardCharts', () => {
     vi.mocked(analyticsApi.getTeamWorkload).mockReturnValue(new Promise(() => {}))
 
     render(<DashboardCharts organizationId={1} />)
-    expect(screen.getByText('Loading charts...')).toBeInTheDocument()
+    expect(screen.getByText('Loading charts...')).toBeTruthy()
   })
 
   it('renders all four chart sections with data', async () => {
@@ -72,13 +72,13 @@ describe('DashboardCharts', () => {
     render(<DashboardCharts organizationId={1} />)
 
     await waitFor(() => {
-      expect(screen.getByText('Analytics')).toBeInTheDocument()
+      expect(screen.getByText('Analytics')).toBeTruthy()
     })
 
-    expect(screen.getByText('Project Status')).toBeInTheDocument()
-    expect(screen.getByText('Task Priority Distribution')).toBeInTheDocument()
-    expect(screen.getByText('Task Completion Trend')).toBeInTheDocument()
-    expect(screen.getByText('Team Workload')).toBeInTheDocument()
+    expect(screen.getByText('Project Status')).toBeTruthy()
+    expect(screen.getByText('Task Priority Distribution')).toBeTruthy()
+    expect(screen.getByText('Task Completion Trend')).toBeTruthy()
+    expect(screen.getByText('Team Workload')).toBeTruthy()
   })
 
   it('renders empty state when no data is available', async () => {
@@ -90,12 +90,12 @@ describe('DashboardCharts', () => {
     render(<DashboardCharts organizationId={1} />)
 
     await waitFor(() => {
-      expect(screen.getByText('No project data available')).toBeInTheDocument()
+      expect(screen.getByText('No project data available')).toBeTruthy()
     })
 
-    expect(screen.getByText('No task data available')).toBeInTheDocument()
-    expect(screen.getByText('No trend data available')).toBeInTheDocument()
-    expect(screen.getByText('No workload data available')).toBeInTheDocument()
+    expect(screen.getByText('No task data available')).toBeTruthy()
+    expect(screen.getByText('No trend data available')).toBeTruthy()
+    expect(screen.getByText('No workload data available')).toBeTruthy()
   })
 
   it('calls API with correct organization ID', async () => {
@@ -125,7 +125,7 @@ describe('DashboardCharts', () => {
     render(<DashboardCharts organizationId={1} />)
 
     await waitFor(() => {
-      expect(screen.getByText('Analytics')).toBeInTheDocument()
+      expect(screen.getByText('Analytics')).toBeTruthy()
     })
 
     expect(consoleSpy).toHaveBeenCalled()
