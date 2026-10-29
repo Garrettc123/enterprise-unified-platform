@@ -8,21 +8,19 @@
   gap: 1.5rem;
   min-height: 76px;
   padding: 0 clamp(1rem, 3vw, 2.5rem);
-  border-bottom: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 4px 20px rgba(31, 24, 58, 0.035);
+  border-bottom: 1px solid rgba(212, 175, 55, 0.28);
+  background: rgba(13, 13, 12, 0.97);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.18);
   backdrop-filter: blur(16px);
 }
 
-.navbar-brand {
-  flex-shrink: 0;
-}
+.navbar-brand { flex-shrink: 0; }
 
 .navbar-brand a {
   display: inline-flex;
   align-items: center;
-  gap: 0.7rem;
-  color: var(--gray-900);
+  gap: 0.75rem;
+  color: #f8f4e8;
   font-size: 1.08rem;
   font-weight: 800;
   letter-spacing: -0.035em;
@@ -30,16 +28,12 @@
 }
 
 .brand-mark {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 11px;
-  color: #fff;
-  background: linear-gradient(145deg, #a855f7, #6d28d9);
-  box-shadow: 0 5px 14px rgba(124, 58, 237, 0.22);
-  font-size: 0.9rem;
-  font-weight: 800;
+  display: block;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 8px rgba(212, 175, 55, 0.12));
 }
 
 .navbar-menu {
@@ -55,7 +49,7 @@
   min-height: 42px;
   padding: 0.5rem 0.15rem;
   border-bottom: 2px solid transparent;
-  color: var(--gray-600);
+  color: #c8c3b5;
   font-size: 0.88rem;
   font-weight: 600;
   white-space: nowrap;
@@ -64,8 +58,8 @@
 
 .nav-link:hover,
 .nav-link.active {
-  border-bottom-color: var(--primary);
-  color: var(--primary);
+  border-bottom-color: #d4af37;
+  color: #f0d77d;
   text-decoration: none;
 }
 
@@ -75,9 +69,7 @@
   gap: 0.9rem;
 }
 
-.user-menu {
-  position: relative;
-}
+.user-menu { position: relative; }
 
 .user-button {
   display: grid;
@@ -85,11 +77,11 @@
   width: 42px;
   height: 42px;
   overflow: hidden;
-  border: 2px solid #eee7ff;
-  border-radius: 14px;
-  color: white;
-  background: linear-gradient(145deg, #a855f7, #6d28d9);
-  box-shadow: 0 3px 10px rgba(124, 58, 237, 0.15);
+  border: 1px solid #d4af37;
+  border-radius: 12px;
+  color: #111110;
+  background: linear-gradient(145deg, #f0d77d, #b58a24);
+  box-shadow: 0 3px 10px rgba(212, 175, 55, 0.16);
   font-size: 0.95rem;
   font-weight: 750;
   transition: transform 160ms ease, box-shadow 160ms ease;
@@ -97,14 +89,10 @@
 
 .user-button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(124, 58, 237, 0.22);
+  box-shadow: 0 6px 16px rgba(212, 175, 55, 0.25);
 }
 
-.user-button img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
+.user-button img { width: 100%; height: 100%; object-fit: cover; }
 
 .dropdown-menu {
   position: absolute;
@@ -135,14 +123,12 @@
 }
 
 .dropdown-item:hover {
-  color: var(--primary);
+  color: var(--primary-dark);
   background: var(--primary-soft);
   text-decoration: none;
 }
 
-.dropdown-item.logout {
-  color: var(--danger);
-}
+.dropdown-item.logout { color: var(--danger); }
 
 .dropdown-menu hr {
   height: 1px;
@@ -164,7 +150,7 @@
   }
 
   .navbar-brand a { font-size: 1rem; }
-  .brand-mark { width: 32px; height: 32px; border-radius: 10px; }
+  .brand-mark { width: 34px; height: 34px; }
   .navbar-menu {
     order: 3;
     width: 100%;
@@ -173,10 +159,6 @@
     overflow-x: auto;
   }
 
-  .nav-link {
-    min-height: 38px;
-    font-size: 0.82rem;
-  }
-
+  .nav-link { min-height: 38px; font-size: 0.82rem; }
   .navbar-end { margin-left: auto; }
 }

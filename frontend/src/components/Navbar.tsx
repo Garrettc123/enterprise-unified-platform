@@ -24,8 +24,8 @@ function Navbar() {
   return (
     <nav className="navbar" aria-label="Main navigation">
       <div className="navbar-brand">
-        <Link to="/dashboard">
-          <span className="brand-mark" aria-hidden="true">G</span>
+        <Link to="/dashboard" aria-label="Garcar Enterprise home">
+          <img className="brand-mark" src="/garcar-logo.svg" alt="" aria-hidden="true" />
           <span>Garcar Enterprise</span>
         </Link>
       </div>
