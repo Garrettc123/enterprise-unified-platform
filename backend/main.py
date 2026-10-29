@@ -6,7 +6,7 @@ import logging
 from .database import init_db
 from .middleware import RequestLoggingMiddleware, RateLimitMiddleware
 from .websocket_manager import ConnectionManager
-from .routers import auth, projects, tasks, organizations, analytics, notifications, files, search, export, audit, revenue
+from .routers import auth, bootstrap, projects, tasks, organizations, analytics, notifications, files, search, export, audit, revenue
 
 # Configure logging
 logging.basicConfig(
@@ -54,6 +54,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth.router)
+app.include_router(bootstrap.router)
 app.include_router(projects.router)
 app.include_router(tasks.router)
 app.include_router(organizations.router)
@@ -79,7 +80,7 @@ async def health_check():
 # Root endpoint
 @app.get("/")
 async def root():
-    """API root endpoint"""
+    """Root endpoint"""
     return {
         "message": "Welcome to Enterprise Unified Platform",
         "version": "1.0.0",
@@ -106,9 +107,7 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
     await ws_manager.connect(websocket)
     try:
         while True:
-            # Receive message from client
             data = await websocket.receive_text()
-            # Broadcast to all clients
             await ws_manager.broadcast_json({
                 "type": "message",
                 "client_id": client_id,
