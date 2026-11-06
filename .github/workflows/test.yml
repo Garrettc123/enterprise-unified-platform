@@ -40,7 +40,7 @@ jobs:
         pip install pytest pytest-asyncio pytest-cov
 
     - name: Run tests
-      run: pytest backend/tests/ -v --cov=backend --cov-report=xml
+      run: python -m pytest backend/tests/ -v --cov=backend --cov-report=xml
       env:
         DATABASE_URL: postgresql://test:test@localhost:5432/test_db
 
@@ -61,10 +61,13 @@ jobs:
         node-version: '20'
 
     - name: Install dependencies
-      run: cd frontend && npm install
+      run: cd frontend && npm ci --legacy-peer-deps
 
     - name: Run tests
-      run: cd frontend && npm run test
+      run: cd frontend && npm run test -- --run
+
+    - name: Run truthfulness tests
+      run: cd frontend && node --test tests/no-synthetic-page.test.mjs
 
     - name: Build
       run: cd frontend && npm run build

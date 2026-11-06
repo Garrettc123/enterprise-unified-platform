@@ -1,49 +1,26 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { BarChart3, Users, DollarSign, TrendingUp, Activity, Zap, Cpu, Database, Globe, Shield, Rocket, Star } from 'lucide-react';
 
 export default function HomePage() {
-  const [metrics, setMetrics] = useState({
-    activeUsers: 12847,
-    revenue: 284650,
-    systemsOnline: 60,
-    growthRate: 847,
-    apiCalls: 1250000,
-    uptime: 99.99
-  });
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setMetrics(prev => ({
-        activeUsers: prev.activeUsers + Math.floor(Math.random() * 50),
-        revenue: prev.revenue + Math.floor(Math.random() * 5000),
-        systemsOnline: 60,
-        growthRate: prev.growthRate + (Math.random() * 2),
-        apiCalls: prev.apiCalls + Math.floor(Math.random() * 1000),
-        uptime: 99.99
-      }));
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
-
+  // No customer or revenue metric is displayed without reconciled evidence.
   const statsCards = [
-    { icon: Users, label: 'Active Users', value: metrics.activeUsers.toLocaleString(), change: '+12.5%', color: 'from-blue-500 to-cyan-500', bgGlow: 'bg-blue-500/20' },
-    { icon: DollarSign, label: 'Revenue Today', value: `$${metrics.revenue.toLocaleString()}`, change: '+23.1%', color: 'from-emerald-500 to-green-500', bgGlow: 'bg-emerald-500/20' },
-    { icon: Activity, label: 'Systems Online', value: `${metrics.systemsOnline}/60`, change: '100%', color: 'from-purple-500 to-pink-500', bgGlow: 'bg-purple-500/20' },
-    { icon: TrendingUp, label: 'Growth Rate', value: `${metrics.growthRate.toFixed(0)}%`, change: '+156%', color: 'from-orange-500 to-red-500', bgGlow: 'bg-orange-500/20' },
-    { icon: Cpu, label: 'API Calls/Hour', value: metrics.apiCalls.toLocaleString(), change: '+89%', color: 'from-indigo-500 to-blue-500', bgGlow: 'bg-indigo-500/20' },
-    { icon: Shield, label: 'Uptime', value: `${metrics.uptime}%`, change: 'SLA Met', color: 'from-green-500 to-emerald-500', bgGlow: 'bg-green-500/20' },
+    { icon: Users, label: 'Active Users', value: 'Not verified', change: 'No source', color: 'from-blue-500 to-cyan-500', bgGlow: 'bg-blue-500/20' },
+    { icon: DollarSign, label: 'Revenue Today', value: 'Not verified', change: 'No source', color: 'from-emerald-500 to-green-500', bgGlow: 'bg-emerald-500/20' },
+    { icon: Activity, label: 'Systems Online', value: 'Not verified', change: 'No source', color: 'from-purple-500 to-pink-500', bgGlow: 'bg-purple-500/20' },
+    { icon: TrendingUp, label: 'Growth Rate', value: 'Not verified', change: 'No source', color: 'from-orange-500 to-red-500', bgGlow: 'bg-orange-500/20' },
+    { icon: Cpu, label: 'API Calls/Hour', value: 'Not verified', change: 'No source', color: 'from-indigo-500 to-blue-500', bgGlow: 'bg-indigo-500/20' },
+    { icon: Shield, label: 'Uptime', value: 'Not verified', change: 'No source', color: 'from-green-500 to-emerald-500', bgGlow: 'bg-green-500/20' },
   ];
 
   const integrations = [
-    { name: 'Feature Flags', revenue: '$8M', status: 'Live', icon: Zap },
-    { name: 'Meta Orchestration', revenue: '$15M', status: 'Live', icon: Cpu },
-    { name: 'Integration Hub', revenue: '$25M', status: 'Live', icon: Database },
-    { name: 'Analytics Engine', revenue: '$12M', status: 'Live', icon: BarChart3 },
-    { name: 'AI Agent System', revenue: '$20M', status: 'Live', icon: Rocket },
-    { name: 'Data Pipeline', revenue: '$24M', status: 'Live', icon: Globe },
+    { name: 'Feature Flags', revenue: 'Not verified', status: 'Unverified', icon: Zap },
+    { name: 'Meta Orchestration', revenue: 'Not verified', status: 'Unverified', icon: Cpu },
+    { name: 'Integration Hub', revenue: 'Not verified', status: 'Unverified', icon: Database },
+    { name: 'Analytics Engine', revenue: 'Not verified', status: 'Unverified', icon: BarChart3 },
+    { name: 'AI Agent System', revenue: 'Not verified', status: 'Unverified', icon: Rocket },
+    { name: 'Data Pipeline', revenue: 'Not verified', status: 'Unverified', icon: Globe },
   ];
 
   return (
@@ -72,11 +49,11 @@ export default function HomePage() {
             <div className="flex items-center gap-6">
               <div className="text-right">
                 <div className="text-sm text-gray-400">Total Revenue Potential</div>
-                <div className="text-2xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">$104M+ ARR</div>
+                <div className="text-2xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">Not verified</div>
               </div>
               <div className="flex items-center gap-2 bg-green-500/20 border border-green-500/50 rounded-full px-4 py-2">
                 <div className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />
-                <span className="text-sm text-green-300 font-semibold">All Systems Operational</span>
+                <span className="text-sm text-green-300 font-semibold">Status not verified</span>
               </div>
             </div>
           </div>
@@ -92,11 +69,11 @@ export default function HomePage() {
             <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} transition={{ duration: 0.6 }}>
               <h2 className="text-6xl font-bold mb-4">
                 <span className="bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                  Unbeatable Enterprise Excellence
+                  Enterprise Operations
                 </span>
               </h2>
               <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-                Real-time intelligence across 60+ integrated systems with unprecedented visual analytics
+                System activity and business metrics require verifiable live sources
               </p>
             </motion.div>
           </div>
@@ -158,7 +135,7 @@ export default function HomePage() {
                   </div>
                   <h4 className="text-white font-semibold text-lg mb-2">{integration.name}</h4>
                   <p className="text-2xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
-                    {integration.revenue} ARR
+                    {integration.revenue}
                   </p>
                 </motion.div>
               ))}
@@ -173,16 +150,16 @@ export default function HomePage() {
             className="text-center bg-gradient-to-r from-purple-500/20 to-cyan-500/20 backdrop-blur-xl rounded-3xl p-12 border border-purple-500/30"
           >
             <Rocket className="h-16 w-16 text-purple-400 mx-auto mb-6" />
-            <h3 className="text-4xl font-bold text-white mb-4">Ready for Multi-Million Dollar Presentations</h3>
+            <h3 className="text-4xl font-bold text-white mb-4">Operational evidence before performance claims</h3>
             <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
-              Fully furnished, beautifully designed, enterprise-grade platform built to HubSpot standards
+              Measured system activity will appear when connected and verified
             </p>
             <div className="flex gap-4 justify-center">
-              <button className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:shadow-2xl hover:shadow-purple-500/50 transition-all">
-                Launch Live Demo
+              <button disabled aria-disabled="true" className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-8 py-4 rounded-xl font-semibold text-lg opacity-60 cursor-not-allowed">
+                Demo not configured
               </button>
               <button className="bg-white/10 text-white px-8 py-4 rounded-xl font-semibold text-lg border border-white/20 hover:bg-white/20 transition-all">
-                View Documentation
+                Documentation not linked
               </button>
             </div>
           </motion.div>

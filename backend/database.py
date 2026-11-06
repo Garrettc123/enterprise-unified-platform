@@ -32,6 +32,13 @@ async def get_database_url() -> str:
     Returns:
         Database URL string for async SQLAlchemy
     """
+    configured_url = os.getenv("DATABASE_URL", "").strip()
+    if configured_url:
+        # The async database layer requires the asyncpg dialect.
+        if configured_url.startswith("postgresql://"):
+            configured_url = configured_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return configured_url
+
     try:
         # Try to get from secrets manager
         secrets_provider = os.getenv("SECRETS_PROVIDER")
