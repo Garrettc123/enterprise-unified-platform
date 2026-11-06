@@ -53,7 +53,7 @@ def client():
 def _register_and_login(client):
     """Helper to register a user and return access token"""
     client.post(
-        "/register",
+        "/api/auth/register",
         json={
             "username": "adminuser",
             "email": "admin@example.com",
@@ -62,7 +62,7 @@ def _register_and_login(client):
         },
     )
     resp = client.post(
-        "/login",
+        "/api/auth/login",
         data={"username": "adminuser", "password": "adminpass123"},
     )
     return resp.json()["access_token"]
