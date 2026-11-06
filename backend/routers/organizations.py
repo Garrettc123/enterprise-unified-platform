@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, update
+from sqlalchemy import select
 from typing import List
 
 from ..database import get_db
@@ -57,23 +57,19 @@ async def create_organization(
         website=org_data.website
     )
     
-    # Add creator as member
-    new_org.members.append(current_user)
-    
+    # Persist the organization before associating its creator. Explicit SQL
+    # avoids async ORM lazy-loading and records ownership atomically.
     db.add(new_org)
-    await db.commit()
-    await db.refresh(new_org)
-    # The creator owns the organization; enforce this in the association row.
+    await db.flush()
     await db.execute(
-        update(user_organization)
-        .where(
-            user_organization.c.organization_id == new_org.id,
-            user_organization.c.user_id == current_user.id,
+        user_organization.insert().values(
+            organization_id=new_org.id,
+            user_id=current_user.id,
+            role="owner",
         )
-        .values(role="owner")
     )
     await db.commit()
-
+    await db.refresh(new_org)
     return new_org
 
 @router.get("/{organization_id}", response_model=OrganizationResponse)
