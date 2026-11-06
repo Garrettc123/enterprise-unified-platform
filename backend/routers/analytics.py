@@ -5,10 +5,29 @@ from datetime import datetime, timedelta
 from typing import Dict, List
 
 from ..database import get_db
-from ..models import Project, Task, User, Organization, AuditLog
+from ..models import Project, Task, User, Organization, AuditLog, user_organization
 from ..routers.auth import oauth2_scheme, get_current_user
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
+
+async def require_organization_access(token: str, db: AsyncSession, organization_id: int):
+    """Reject analytics access unless user belongs to the requested tenant."""
+    user = await get_current_user(token, db)
+    if user.is_superuser:
+        return user
+    result = await db.execute(
+        select(user_organization.c.user_id).where(
+            user_organization.c.user_id == user.id,
+            user_organization.c.organization_id == organization_id,
+        ).limit(1)
+    )
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Organization membership required",
+        )
+    return user
+
 
 @router.get("/dashboard/overview")
 async def get_dashboard_overview(
@@ -17,7 +36,7 @@ async def get_dashboard_overview(
     db: AsyncSession = Depends(get_db)
 ) -> Dict:
     """Get dashboard overview metrics"""
-    current_user = await get_current_user(token, db)
+    current_user = await require_organization_access(token, db, organization_id)
     
     # Get project stats
     projects_result = await db.execute(
@@ -80,7 +99,7 @@ async def get_project_status_breakdown(
     db: AsyncSession = Depends(get_db)
 ) -> List[Dict]:
     """Get project status breakdown"""
-    await get_current_user(token, db)
+    await require_organization_access(token, db, organization_id)
     
     result = await db.execute(
         select(
@@ -107,7 +126,7 @@ async def get_task_priority_distribution(
     db: AsyncSession = Depends(get_db)
 ) -> List[Dict]:
     """Get task priority distribution"""
-    await get_current_user(token, db)
+    await require_organization_access(token, db, organization_id)
     
     result = await db.execute(
         select(
@@ -137,7 +156,7 @@ async def get_task_status_trend(
     db: AsyncSession = Depends(get_db)
 ) -> List[Dict]:
     """Get task completion trend over time"""
-    await get_current_user(token, db)
+    await require_organization_access(token, db, organization_id)
     
     cutoff_date = datetime.utcnow() - timedelta(days=days)
     
@@ -170,7 +189,7 @@ async def get_team_workload(
     db: AsyncSession = Depends(get_db)
 ) -> List[Dict]:
     """Get team member workload"""
-    await get_current_user(token, db)
+    await require_organization_access(token, db, organization_id)
     
     result = await db.execute(
         select(
