@@ -2,6 +2,7 @@ from fastapi import FastAPI, WebSocket, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
+import os
 
 from .database import init_db
 from .middleware import RequestLoggingMiddleware, RateLimitMiddleware
@@ -24,9 +25,9 @@ async def lifespan(app: FastAPI):
     logger.info("🚀 Starting Enterprise Unified Platform")
     await init_db()
     logger.info("✅ Database initialized")
-    logger.info("📊 Analytics system ready")
-    logger.info("🔐 Authentication system active")
-    logger.info("👥 Team collaboration features enabled")
+    logger.info("Analytics routes registered; source validity is not yet verified")
+    logger.info("Authentication routes registered")
+    logger.info("Collaboration routes registered; integrations not verified")
     yield
     # Shutdown
     logger.info("💤 Shutting down")
@@ -46,7 +47,12 @@ app.add_middleware(RequestLoggingMiddleware)
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        origin.strip() for origin in os.getenv(
+            "CORS_ORIGINS",
+            "http://localhost:5173,https://enterprise-unified-platform.vercel.app",
+        ).split(",") if origin.strip()
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -71,7 +77,7 @@ app.include_router(revenue.router)
 async def health_check():
     """Health check endpoint"""
     return {
-        "status": "healthy",
+        "status": "process_alive_unverified",
         "service": "Enterprise Unified Platform",
         "version": "1.0.0",
         "active_connections": ws_manager.get_connection_count()
@@ -118,29 +124,6 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
         logger.error(f"WebSocket error: {e}")
     finally:
         ws_manager.disconnect(websocket)
-
-# Startup event
-@app.on_event("startup")
-async def startup_event():
-    logger.info("\n" + "="*60)
-    logger.info("Enterprise Unified Platform v1.0.0")
-    logger.info("="*60)
-    logger.info("✅ Authentication & Security")
-    logger.info("✅ Project & Task Management")
-    logger.info("✅ Team Collaboration")
-    logger.info("✅ Analytics & Insights")
-    logger.info("✅ File Management")
-    logger.info("✅ Advanced Search")
-    logger.info("✅ Data Export")
-    logger.info("✅ Audit Logging")
-    logger.info("✅ Real-time Updates")
-    logger.info("✅ Revenue Management")
-    logger.info("="*60 + "\n")
-
-# Shutdown event
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info("Shutting down Enterprise Unified Platform...")
 
 if __name__ == "__main__":
     import uvicorn
