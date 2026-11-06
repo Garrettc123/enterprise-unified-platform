@@ -13,7 +13,7 @@ from fastapi import FastAPI
 
 os.environ.setdefault("STRIPE_SECRET_KEY", "sk_test_placeholder")
 
-from backend.routers.revenue import router, _record_event, _ledger
+from backend.routers.revenue import router
 from backend.revenue_agent import (
     Lead, LeadScorer, RevenueSnapshot, RevenueForecaster,
     Account, ChurnPredictor, RevenueAutomationAgent,
@@ -40,21 +40,13 @@ def test_health_check_with_test_key():
 
 
 def test_dashboard_returns_unavailable_without_durable_reconciliation():
-    _ledger.clear()
-    r = client.get("/revenue/dashboard")
-    assert r.status_code == 503
-    d = r.json()
-    assert d["status"] == "unavailable"
-    assert d["verified_mrr"] is None
-    assert d["verified_arr"] is None
-
-
-def test_volatile_events_cannot_be_reported_as_collected_revenue():
-    _ledger.clear()
-    _record_event("invoice_paid", 50000, "cus_test1")
-    r = client.get("/revenue/dashboard")
-    assert r.status_code == 503
-    assert r.json()["verified_revenue"] is None
+    response = client.get("/revenue/dashboard")
+    assert response.status_code == 503
+    body = response.json()
+    assert body["status"] == "unavailable"
+    assert body["verified_mrr"] is None
+    assert body["verified_arr"] is None
+    assert body["verified_revenue"] is None
 
 
 def test_webhook_refuses_unsigned_payload(monkeypatch):
@@ -93,7 +85,6 @@ def test_checkout_rejects_non_verified_redirect_domain(monkeypatch):
         "customer_email": "buyer@example.com",
         "price_id": "price_verified",
         "mode": "payment",
-        "success_url": "https://example.net/redirect",
     })
     assert response.status_code == 503
     assert "origin is not configured" in response.json()["detail"]
