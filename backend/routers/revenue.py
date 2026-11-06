@@ -155,37 +155,12 @@ async def stripe_webhook(
     etype = event.get("type", "")
     data = event.get("data", {}).get("object", {})
 
-    # --- Payment succeeded
-    if etype == "payment_intent.succeeded":
-        amount = data.get("amount", 0)
-        customer = data.get("customer") or "guest"
-        _record_event("payment_succeeded", amount, customer, {"intent_id": data.get("id")})
-
-    # --- Subscription created
-    elif etype == "customer.subscription.created":
-        plan = data.get("plan", {}).get("id", "")
-        customer = data.get("customer", "")
-        amount = data.get("plan", {}).get("amount", 0)
-        _record_event("subscription_created", amount, customer, {"plan": plan})
-
-    # --- Subscription deleted (churn)
-    elif etype == "customer.subscription.deleted":
-        customer = data.get("customer", "")
-        amount = data.get("plan", {}).get("amount", 0)
-        _record_event("subscription_churned", -amount, customer)
-
-    # --- Invoice paid (recurring revenue)
-    elif etype == "invoice.paid":
-        customer = data.get("customer", "")
-        amount = data.get("amount_paid", 0)
-        _record_event("invoice_paid", amount, customer, {"invoice_id": data.get("id")})
-
-    # --- Invoice payment failed
-    elif etype == "invoice.payment_failed":
-        customer = data.get("customer", "")
-        _record_event("invoice_failed", 0, customer)
-
-    return {"received": True, "event_type": etype}
+    # Stripe must retry rather than accept events without durable storage.
+    # No verified financial event is acknowledged on a process-local list.
+    raise HTTPException(
+        status_code=503,
+        detail="Durable webhook persistence and event-ID deduplication not configured",
+    )
 
 
 @router.get("/dashboard")
@@ -206,31 +181,8 @@ async def revenue_dashboard():
 
 @router.post("/invoice")
 async def create_invoice(req: InvoiceRequest):
-    """Manually create and finalize a Stripe invoice for enterprise billing."""
-    stripe = _stripe()
-    try:
-        # Create invoice item
-        stripe.InvoiceItem.create(
-            customer=req.customer_id,
-            amount=req.amount_cents,
-            currency=req.currency,
-            description=req.description,
-        )
-        # Create and finalize invoice
-        invoice = stripe.Invoice.create(
-            customer=req.customer_id,
-            collection_method="send_invoice",
-            days_until_due=req.due_days,
-            auto_advance=True,
-        )
-        finalized = stripe.Invoice.finalize_invoice(invoice.id)
-        return {
-            "invoice_id": finalized.id,
-            "status": finalized.status,
-            "amount_due": finalized.amount_due / 100,
-            "currency": finalized.currency,
-            "hosted_invoice_url": finalized.hosted_invoice_url,
-            "due_date": finalized.due_date,
-        }
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    """Refuse billing mutations until authentication and approval gates exist."""
+    raise HTTPException(
+        status_code=503,
+        detail="Invoice creation disabled until authorization and billing approval are implemented",
+    )
