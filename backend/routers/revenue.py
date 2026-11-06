@@ -98,9 +98,9 @@ async def revenue_health():
             content={"status": "unhealthy", "reason": "STRIPE_SECRET_KEY missing or invalid"}
         )
     return {
-        "status": "healthy",
+        "status": "configured_unverified",
         "stripe_mode": "live" if key.startswith("sk_live_") else "test",
-        "ledger_events": len(_ledger),
+        "ledger_events": None,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -190,45 +190,18 @@ async def stripe_webhook(
 
 @router.get("/dashboard")
 async def revenue_dashboard():
-    """Real-time revenue metrics computed from the event ledger."""
-    now = time.time()
-    month_ago = now - 30 * 86400
-
-    monthly_events = [e for e in _ledger if e["ts"] >= month_ago]
-    subscriptions = [e for e in _ledger if e["event"] == "subscription_created"]
-    churns = [e for e in _ledger if e["event"] == "subscription_churned"]
-    active_subs = len(subscriptions) - len(churns)
-
-    # MRR: sum of active subscription amounts this month
-    mrr_cents = sum(
-        e["amount_cents"] for e in monthly_events
-        if e["event"] in ("subscription_created", "invoice_paid") and e["amount_cents"] > 0
+    """Do not expose transient webhook counts as reconciled finance data."""
+    return JSONResponse(
+        status_code=503,
+        content={
+            "status": "unavailable",
+            "reason": "Durable Stripe reconciliation has not been implemented",
+            "verified_revenue": None,
+            "verified_mrr": None,
+            "verified_arr": None,
+            "verified_customer_count": None,
+        },
     )
-
-    # Revenue collected this month (all payment types)
-    total_collected = sum(
-        e["amount_cents"] for e in monthly_events
-        if e["event"] in ("payment_succeeded", "invoice_paid") and e["amount_cents"] > 0
-    )
-
-    # Churn rate
-    churn_rate = (len(churns) / max(len(subscriptions), 1)) * 100
-
-    # LTV: MRR / churn_rate (simplified)
-    ltv_cents = int(mrr_cents / max(churn_rate / 100, 0.001))
-
-    return {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "mrr": round(mrr_cents / 100, 2),
-        "arr": round(mrr_cents * 12 / 100, 2),
-        "total_collected_30d": round(total_collected / 100, 2),
-        "active_subscriptions": active_subs,
-        "churn_rate_pct": round(churn_rate, 2),
-        "ltv": round(ltv_cents / 100, 2),
-        "total_events": len(_ledger),
-        "events_30d": len(monthly_events),
-        "currency": "usd",
-    }
 
 
 @router.post("/invoice")
