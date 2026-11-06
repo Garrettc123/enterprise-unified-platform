@@ -156,3 +156,46 @@ def test_admin_overview_requires_superuser(client, setup_test_db):
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 403
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "/api/analytics/dashboard/overview",
+        "/api/analytics/projects/status-breakdown",
+        "/api/analytics/tasks/priority-distribution",
+        "/api/analytics/tasks/status-trend",
+        "/api/analytics/team/workload",
+    ],
+)
+def test_tenant_analytics_denies_other_organization(client, endpoint):
+    """Authenticated users must not read arbitrary organization's data."""
+    token = _register_and_login(client)
+    response = client.get(
+        endpoint,
+        params={"organization_id": 999999},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 403
+
+
+def test_organization_details_and_members_require_membership(client):
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    for route in (
+        "/api/organizations/999999",
+        "/api/organizations/999999/members",
+    ):
+        response = client.get(route, headers=headers)
+        assert response.status_code == 403
+
+
+def test_arbitrary_org_membership_mutation_forbidden(client):
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    assert client.post(
+        "/api/organizations/999999/members/2", headers=headers
+    ).status_code == 403
+    assert client.delete(
+        "/api/organizations/999999/members/2", headers=headers
+    ).status_code == 403
