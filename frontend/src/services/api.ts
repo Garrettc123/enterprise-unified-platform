@@ -110,6 +110,17 @@ export const tasksApi = {
   },
 }
 
+// Organizations API: resolve a tenant from authenticated membership, never assume ID 1.
+export const organizationsApi = {
+  list: async (token: string): Promise<Array<{ id: number; name: string }>> => {
+    const response = await fetch(`${API_BASE_URL}/organizations`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!response.ok) throw new Error('Failed to fetch your organizations')
+    return response.json()
+  },
+}
+
 // Analytics API
 export const analyticsApi = {
   getDashboardOverview: async (token: string, organizationId: number) => {
