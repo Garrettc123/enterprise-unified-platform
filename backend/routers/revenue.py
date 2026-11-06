@@ -3,9 +3,9 @@ Revenue Engine — FastAPI Router
 ================================
 Handles all money-in flows:
   POST /revenue/checkout   — Stripe Checkout Session (one-time or subscription)
-  POST /revenue/webhook    — Stripe webhook (payment_intent, invoice, subscription events)
-  GET  /revenue/dashboard  — Live MRR/ARR/churn/LTV/pipeline metrics
-  POST /revenue/invoice    — Manual invoice trigger for enterprise clients
+  POST /revenue/webhook    — Signed webhook validation (persistence not configured)
+  GET  /revenue/dashboard  — Unavailable until Stripe reconciliation exists
+  POST /revenue/invoice    — Disabled pending approval and authentication
   GET  /revenue/health     — Revenue system readiness probe
 
 All Stripe API calls use the STRIPE_SECRET_KEY env var (GitHub Secret).
@@ -15,16 +15,11 @@ No key is hardcoded anywhere in this file.
 
 from __future__ import annotations
 
-import hashlib
-import hmac
-import json
 import os
-import time
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
+from fastapi import APIRouter, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, EmailStr
 
@@ -38,10 +33,7 @@ class CheckoutRequest(BaseModel):
     customer_email: EmailStr
     price_id: str = Field(..., description="Stripe Price ID (price_xxx)")
     mode: str = Field("subscription", pattern="^(subscription|payment)$")
-    success_url: str = Field(default="https://garcarenterprise.com/success")
-    cancel_url: str = Field(default="https://garcarenterprise.com/cancel")
     client_reference_id: Optional[str] = None
-    metadata: dict = Field(default_factory=dict)
 
 
 class InvoiceRequest(BaseModel):
@@ -68,29 +60,12 @@ def _stripe():
 
 
 # ---------------------------------------------------------------------------
-# In-memory revenue ledger (replace with DB in production)
-# ---------------------------------------------------------------------------
-
-_ledger: list[dict] = []
-
-
-def _record_event(event_type: str, amount_cents: int, customer_id: str, meta: dict = None):
-    _ledger.append({
-        "ts": int(time.time()),
-        "event": event_type,
-        "amount_cents": amount_cents,
-        "customer_id": customer_id,
-        "meta": meta or {},
-    })
-
-
-# ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
 
 @router.get("/health")
 async def revenue_health():
-    """Readiness probe — returns 200 if Stripe key is configured."""
+    """Configuration probe; not a claim of Stripe connectivity or paid revenue."""
     key = os.environ.get("STRIPE_SECRET_KEY", "")
     if not key or not key.startswith("sk_"):
         return JSONResponse(
@@ -100,7 +75,6 @@ async def revenue_health():
     return {
         "status": "configured_unverified",
         "stripe_mode": "live" if key.startswith("sk_live_") else "test",
-        "ledger_events": None,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -151,7 +125,6 @@ async def create_checkout_session(req: CheckoutRequest):
 @router.post("/webhook")
 async def stripe_webhook(
     request: Request,
-    background_tasks: BackgroundTasks,
     stripe_signature: str = Header(None, alias="stripe-signature"),
 ):
     """
@@ -167,12 +140,9 @@ async def stripe_webhook(
         raise HTTPException(status_code=400, detail="Missing Stripe signature")
     stripe = _stripe()
     try:
-        event = stripe.Webhook.construct_event(payload, stripe_signature, webhook_secret)
+        stripe.Webhook.construct_event(payload, stripe_signature, webhook_secret)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid Stripe webhook signature")
-
-    etype = event.get("type", "")
-    data = event.get("data", {}).get("object", {})
 
     # Stripe must retry rather than accept events without durable storage.
     # No verified financial event is acknowledged on a process-local list.
