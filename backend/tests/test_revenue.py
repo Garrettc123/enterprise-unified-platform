@@ -64,6 +64,41 @@ def test_webhook_refuses_unsigned_payload(monkeypatch):
     assert "not configured" in r.json()["detail"]
 
 
+def test_checkout_requires_approved_product_catalog(monkeypatch):
+    monkeypatch.delenv("GARCAR_ALLOWED_STRIPE_PRICE_IDS", raising=False)
+    response = client.post("/revenue/checkout", json={
+        "customer_email": "buyer@example.com",
+        "price_id": "price_unapproved",
+        "mode": "payment",
+    })
+    assert response.status_code == 503
+    assert "not configured" in response.json()["detail"]
+
+
+def test_checkout_rejects_unlisted_price_before_contacting_stripe(monkeypatch):
+    monkeypatch.setenv("GARCAR_ALLOWED_STRIPE_PRICE_IDS", "price_verified")
+    response = client.post("/revenue/checkout", json={
+        "customer_email": "buyer@example.com",
+        "price_id": "price_unapproved",
+        "mode": "payment",
+    })
+    assert response.status_code == 400
+    assert "approved catalog" in response.json()["detail"]
+
+
+def test_checkout_rejects_non_verified_redirect_domain(monkeypatch):
+    monkeypatch.setenv("GARCAR_ALLOWED_STRIPE_PRICE_IDS", "price_verified")
+    monkeypatch.delenv("GARCAR_PUBLIC_BASE_URL", raising=False)
+    response = client.post("/revenue/checkout", json={
+        "customer_email": "buyer@example.com",
+        "price_id": "price_verified",
+        "mode": "payment",
+        "success_url": "https://example.net/redirect",
+    })
+    assert response.status_code == 503
+    assert "origin is not configured" in response.json()["detail"]
+
+
 # --- LeadScorer tests ---
 
 def test_lead_scorer_hot():
