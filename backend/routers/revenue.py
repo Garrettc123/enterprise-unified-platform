@@ -142,15 +142,15 @@ async def stripe_webhook(
     payload = await request.body()
     webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 
-    if webhook_secret:
-        stripe = _stripe()
-        try:
-            event = stripe.Webhook.construct_event(payload, stripe_signature, webhook_secret)
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Webhook signature invalid: {e}")
-    else:
-        # No secret configured — accept but log warning
-        event = json.loads(payload)
+    if not webhook_secret:
+        raise HTTPException(status_code=503, detail="Signed webhook processing is not configured")
+    if not stripe_signature:
+        raise HTTPException(status_code=400, detail="Missing Stripe signature")
+    stripe = _stripe()
+    try:
+        event = stripe.Webhook.construct_event(payload, stripe_signature, webhook_secret)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid Stripe webhook signature")
 
     etype = event.get("type", "")
     data = event.get("data", {}).get("object", {})
