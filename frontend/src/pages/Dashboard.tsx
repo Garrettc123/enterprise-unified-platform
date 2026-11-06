@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
-import { analyticsApi } from '../services/api'
+import { analyticsApi, organizationsApi } from '../services/api'
 import DashboardCharts from '../components/DashboardCharts'
 import './Dashboard.css'
 
@@ -17,24 +17,70 @@ function Dashboard() {
   const { user } = useAuth()
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [organizationId] = useState(1) // Default org ID
+  const [organizationId, setOrganizationId] = useState<number | null>(null)
+  const [organizations, setOrganizations] = useState<Array<{ id: number; name: string }>>([])
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const fetchMetrics = async () => {
+    let active = true
+    const loadOrganizations = async () => {
       const token = localStorage.getItem('access_token')
-      if (!token) return
+      if (!token) {
+        if (active) {
+          setError('Authentication required')
+          setIsLoading(false)
+        }
+        return
+      }
+      try {
+        const available = await organizationsApi.list(token)
+        if (active) {
+          setOrganizations(available)
+          setOrganizationId(available.length > 0 ? available[0].id : null)
+          if (available.length === 0) setIsLoading(false)
+        }
+      } catch {
+        if (active) {
+          setError('Unable to verify your organization access')
+          setIsLoading(false)
+        }
+      }
+    }
+    void loadOrganizations()
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    if (organizationId === null) return
+    let active = true
+    const fetchMetrics = async () => {
+      setIsLoading(true)
+      const token = localStorage.getItem('access_token')
+      if (!token) {
+        if (active) {
+          setError('Authentication required')
+          setIsLoading(false)
+        }
+        return
+      }
 
       try {
         const data = await analyticsApi.getDashboardOverview(token, organizationId)
-        setMetrics(data)
-      } catch (error) {
-        console.error('Error fetching dashboard:', error)
+        if (active) {
+          setMetrics(data)
+          setError(null)
+        }
+      } catch {
+        if (active) {
+          setMetrics(null)
+          setError('Verified dashboard data is unavailable for this organization')
+        }
       } finally {
-        setIsLoading(false)
+        if (active) setIsLoading(false)
       }
     }
-
-    fetchMetrics()
+    void fetchMetrics()
+    return () => { active = false }
   }, [organizationId])
 
   if (isLoading) {
@@ -47,6 +93,22 @@ function Dashboard() {
         <h1>Welcome, {user?.full_name || user?.username}! 👋</h1>
         <p>Here's your project overview</p>
       </div>
+
+      <div className="organization-picker">
+        <label htmlFor="organization">Organization: </label>
+        <select
+          id="organization"
+          value={organizationId ?? ''}
+          onChange={(event) => setOrganizationId(Number(event.target.value))}
+          disabled={organizations.length === 0}
+        >
+          {organizations.map((organization) => (
+            <option key={organization.id} value={organization.id}>{organization.name}</option>
+          ))}
+        </select>
+      </div>
+      {error && <p role="alert">{error}</p>}
+      {organizations.length === 0 && !error && <p>No authorized organizations found.</p>}
 
       {metrics && (
         <div className="metrics-grid">
@@ -80,7 +142,7 @@ function Dashboard() {
         </div>
       )}
 
-      <DashboardCharts organizationId={organizationId} />
+      {metrics && organizationId !== null && <DashboardCharts organizationId={organizationId} />}
     </div>
   )
 }
