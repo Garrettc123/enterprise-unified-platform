@@ -39,24 +39,29 @@ def test_health_check_with_test_key():
     assert r.json()["stripe_mode"] == "test"
 
 
-def test_dashboard_empty():
+def test_dashboard_returns_unavailable_without_durable_reconciliation():
     _ledger.clear()
     r = client.get("/revenue/dashboard")
-    assert r.status_code == 200
+    assert r.status_code == 503
     d = r.json()
-    assert d["mrr"] == 0.0
-    assert d["arr"] == 0.0
-    assert d["active_subscriptions"] == 0
+    assert d["status"] == "unavailable"
+    assert d["verified_mrr"] is None
+    assert d["verified_arr"] is None
 
 
-def test_dashboard_with_events():
+def test_volatile_events_cannot_be_reported_as_collected_revenue():
     _ledger.clear()
-    _record_event("invoice_paid", 50000, "cus_test1")   # $500
-    _record_event("subscription_created", 25000, "cus_test2")  # $250
+    _record_event("invoice_paid", 50000, "cus_test1")
     r = client.get("/revenue/dashboard")
-    assert r.status_code == 200
-    d = r.json()
-    assert d["total_collected_30d"] > 0
+    assert r.status_code == 503
+    assert r.json()["verified_revenue"] is None
+
+
+def test_webhook_refuses_unsigned_payload(monkeypatch):
+    monkeypatch.delenv("STRIPE_WEBHOOK_SECRET", raising=False)
+    r = client.post("/revenue/webhook", json={"type": "invoice.paid"})
+    assert r.status_code == 503
+    assert "not configured" in r.json()["detail"]
 
 
 # --- LeadScorer tests ---
