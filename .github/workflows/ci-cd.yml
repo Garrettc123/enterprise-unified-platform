@@ -52,7 +52,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -73,6 +73,9 @@ jobs:
           MONGODB_URI: ${{ env.MONGODB_URI }}
           DATABASE_URL: postgresql://test_user:ci_only_password_change_me@localhost:5432/test_db
 
+      - name: Run source truthfulness tests
+        run: cd frontend && node --test tests/no-synthetic-page.test.mjs
+
       - name: Run Python Tests
         run: python -m pytest backend/tests/ -q
         env:
@@ -92,7 +95,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '24'
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -127,7 +130,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '24'
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
