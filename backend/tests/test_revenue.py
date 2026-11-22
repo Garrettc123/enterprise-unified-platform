@@ -13,7 +13,7 @@ from fastapi import FastAPI
 
 os.environ.setdefault("STRIPE_SECRET_KEY", "sk_test_placeholder")
 
-from backend.routers.revenue import router, _record_event, _ledger
+from backend.routers.revenue import router
 from backend.revenue_agent import (
     Lead, LeadScorer, RevenueSnapshot, RevenueForecaster,
     Account, ChurnPredictor, RevenueAutomationAgent,
@@ -39,24 +39,55 @@ def test_health_check_with_test_key():
     assert r.json()["stripe_mode"] == "test"
 
 
-def test_dashboard_empty():
-    _ledger.clear()
-    r = client.get("/revenue/dashboard")
-    assert r.status_code == 200
-    d = r.json()
-    assert d["mrr"] == 0.0
-    assert d["arr"] == 0.0
-    assert d["active_subscriptions"] == 0
+def test_dashboard_returns_unavailable_without_durable_reconciliation():
+    response = client.get("/revenue/dashboard")
+    assert response.status_code == 503
+    body = response.json()
+    assert body["status"] == "unavailable"
+    assert body["verified_mrr"] is None
+    assert body["verified_arr"] is None
+    assert body["verified_revenue"] is None
 
 
-def test_dashboard_with_events():
-    _ledger.clear()
-    _record_event("invoice_paid", 50000, "cus_test1")   # $500
-    _record_event("subscription_created", 25000, "cus_test2")  # $250
-    r = client.get("/revenue/dashboard")
-    assert r.status_code == 200
-    d = r.json()
-    assert d["total_collected_30d"] > 0
+def test_webhook_refuses_unsigned_payload(monkeypatch):
+    monkeypatch.delenv("STRIPE_WEBHOOK_SECRET", raising=False)
+    r = client.post("/revenue/webhook", json={"type": "invoice.paid"})
+    assert r.status_code == 503
+    assert "not configured" in r.json()["detail"]
+
+
+def test_checkout_requires_approved_product_catalog(monkeypatch):
+    monkeypatch.delenv("GARCAR_ALLOWED_STRIPE_PRICE_IDS", raising=False)
+    response = client.post("/revenue/checkout", json={
+        "customer_email": "buyer@example.com",
+        "price_id": "price_unapproved",
+        "mode": "payment",
+    })
+    assert response.status_code == 503
+    assert "not configured" in response.json()["detail"]
+
+
+def test_checkout_rejects_unlisted_price_before_contacting_stripe(monkeypatch):
+    monkeypatch.setenv("GARCAR_ALLOWED_STRIPE_PRICE_IDS", "price_verified")
+    response = client.post("/revenue/checkout", json={
+        "customer_email": "buyer@example.com",
+        "price_id": "price_unapproved",
+        "mode": "payment",
+    })
+    assert response.status_code == 400
+    assert "approved catalog" in response.json()["detail"]
+
+
+def test_checkout_rejects_non_verified_redirect_domain(monkeypatch):
+    monkeypatch.setenv("GARCAR_ALLOWED_STRIPE_PRICE_IDS", "price_verified")
+    monkeypatch.delenv("GARCAR_PUBLIC_BASE_URL", raising=False)
+    response = client.post("/revenue/checkout", json={
+        "customer_email": "buyer@example.com",
+        "price_id": "price_verified",
+        "mode": "payment",
+    })
+    assert response.status_code == 503
+    assert "origin is not configured" in response.json()["detail"]
 
 
 # --- LeadScorer tests ---

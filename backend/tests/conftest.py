@@ -1,6 +1,13 @@
 import os
 import sys
 
+# A deterministic key is acceptable only inside the isolated test suite.
+# The application itself has no production fallback signing key.
+os.environ.setdefault(
+    "SECRET_KEY",
+    "CI-TEST-KEY-ONLY-do-not-use-in-production-20261106",
+)
+
 # The repository contains backend/secrets, which can shadow Python's stdlib
 # `secrets` module when pytest imports FastAPI/Starlette. Load the stdlib
 # module first, then restore the backend path for application imports.

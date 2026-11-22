@@ -23,7 +23,7 @@ app.add_middleware(
 @app.get("/")
 async def root():
     return {
-        "status": "live",
+        "status": "reachable_unverified",
         "platform": "Garcar Enterprise",
         "version": "2.0.1",
         "revenue_endpoints": [
@@ -38,17 +38,17 @@ async def root():
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "platform": "Garcar Enterprise Platform", "timestamp": datetime.now(timezone.utc).isoformat()}
+    return {"status": "process_alive", "platform": "Garcar Enterprise Platform", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 @app.get("/revenue/health")
 async def revenue_health():
-    return {"status": "healthy", "module": "revenue", "timestamp": datetime.now(timezone.utc).isoformat()}
+    return {"status": "unverified", "module": "revenue", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 @app.get("/revenue/checkout")
 async def checkout_info():
-    return {"endpoint": "checkout", "status": "operational", "provider": "stripe"}
+    return {"endpoint": "checkout", "status": "not_verified", "provider": "stripe"}
 
 
 @app.post("/revenue/webhook")
@@ -70,5 +70,5 @@ async def api_status():
         "platform": "Garcar Enterprise",
         "version": "2.0.1",
         "modules": ["revenue", "billing", "leads", "churn"],
-        "status": "operational"
+        "status": "capabilities_unverified"
     }
