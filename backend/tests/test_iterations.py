@@ -303,3 +303,56 @@ def test_iteration_tasks(client):
     assert data[0]["title"] == "Task in Sprint"
     assert data[0]["iteration_id"] == iteration_id
 
+
+def test_iteration_endpoints_enforce_organization_membership(client):
+    """An authenticated outsider must not read or mutate another tenant's sprints."""
+    owner_token = _register_and_login(client)
+    _, project_id = _create_org_and_project(client, owner_token)
+    headers = {"Authorization": f"Bearer {owner_token}"}
+    created = client.post(
+        "/api/iterations",
+        json={
+            "name": "Owner sprint",
+            "project_id": project_id,
+            "start_date": "2026-02-10T00:00:00",
+            "end_date": "2026-02-24T00:00:00",
+        },
+        headers=headers,
+    )
+    assert created.status_code == 201
+    iteration_id = created.json()["id"]
+
+    registered = client.post(
+        "/api/auth/register",
+        json={
+            "username": "outsider",
+            "email": "outsider@example.com",
+            "password": "outsiderpass123",
+        },
+    )
+    assert registered.status_code == 201
+    token_response = client.post(
+        "/api/auth/login",
+        data={"username": "outsider", "password": "outsiderpass123"},
+    )
+    assert token_response.status_code == 200
+    outsider_headers = {"Authorization": f"Bearer {token_response.json()['access_token']}"}
+
+    assert client.get(f"/api/iterations/{iteration_id}", headers=outsider_headers).status_code == 403
+    assert client.get(f"/api/iterations?project_id={project_id}", headers=outsider_headers).status_code == 403
+    assert client.get(f"/api/iterations/{iteration_id}/tasks", headers=outsider_headers).status_code == 403
+    assert client.patch(
+        f"/api/iterations/{iteration_id}", json={"name": "Hijacked"}, headers=outsider_headers
+    ).status_code == 403
+    assert client.delete(f"/api/iterations/{iteration_id}", headers=outsider_headers).status_code == 403
+    assert client.post(
+        "/api/iterations",
+        json={
+            "name": "Injected",
+            "project_id": project_id,
+            "start_date": "2026-02-10T00:00:00",
+            "end_date": "2026-02-24T00:00:00",
+        },
+        headers=outsider_headers,
+    ).status_code == 403
+

@@ -7,7 +7,7 @@ import os
 from .database import init_db
 from .middleware import RequestLoggingMiddleware, RateLimitMiddleware
 from .websocket_manager import ConnectionManager
-from .routers import auth, bootstrap, projects, tasks, organizations, analytics, notifications, files, search, export, audit, revenue
+from .routers import auth, bootstrap, projects, tasks, iterations, organizations, analytics, notifications, files, search, export, audit, revenue
 
 # Configure logging
 logging.basicConfig(
@@ -63,6 +63,7 @@ app.include_router(auth.router)
 app.include_router(bootstrap.router)
 app.include_router(projects.router)
 app.include_router(tasks.router)
+app.include_router(iterations.router)
 app.include_router(organizations.router)
 app.include_router(analytics.router)
 app.include_router(notifications.router)
@@ -127,4 +128,4 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host=os.getenv("HOST", "127.0.0.1"), port=8000)

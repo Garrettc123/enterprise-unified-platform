@@ -8,8 +8,18 @@ from ..database import get_db
 from ..models import Iteration, Project, Task
 from ..schemas import IterationCreate, IterationUpdate, IterationResponse, TaskResponse
 from ..routers.auth import oauth2_scheme, get_current_user
+from ..routers.organizations import require_membership
 
 router = APIRouter(prefix="/api/iterations", tags=["iterations"])
+
+
+async def _require_project_membership(token: str, db: AsyncSession, project_id: int, *, manage: bool = False):
+    """Validate the project's tenant boundary before accessing its iterations."""
+    result = await db.execute(select(Project.organization_id).where(Project.id == project_id))
+    organization_id = result.scalar_one_or_none()
+    if organization_id is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    await require_membership(token, db, organization_id, manage=manage)
 
 @router.post("", response_model=IterationResponse, status_code=status.HTTP_201_CREATED)
 async def create_iteration(
@@ -30,6 +40,8 @@ async def create_iteration(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Project not found"
         )
+
+    await _require_project_membership(token, db, iteration_data.project_id, manage=True)
 
     if iteration_data.end_date <= iteration_data.start_date:
         raise HTTPException(
@@ -74,6 +86,7 @@ async def get_iteration(
             detail="Iteration not found"
         )
 
+    await _require_project_membership(token, db, iteration.project_id)
     return iteration
 
 @router.get("", response_model=List[IterationResponse])
@@ -88,6 +101,7 @@ async def list_iterations(
     """List iterations for a project"""
     await get_current_user(token, db)
 
+    await _require_project_membership(token, db, project_id)
     query = select(Iteration).where(Iteration.project_id == project_id)
 
     if status:
@@ -119,6 +133,8 @@ async def update_iteration(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Iteration not found"
         )
+
+    await _require_project_membership(token, db, iteration.project_id, manage=True)
 
     # Update fields
     if iteration_data.name is not None:
@@ -167,6 +183,7 @@ async def delete_iteration(
             detail="Iteration not found"
         )
 
+    await _require_project_membership(token, db, iteration.project_id, manage=True)
     await db.delete(iteration)
     await db.commit()
 
@@ -193,6 +210,7 @@ async def get_iteration_tasks(
             detail="Iteration not found"
         )
 
+    await _require_project_membership(token, db, iteration.project_id)
     query = select(Task).where(Task.iteration_id == iteration_id)
 
     if status:

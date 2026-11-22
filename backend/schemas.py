@@ -86,6 +86,39 @@ class TaskResponse(TaskBase):
     class Config:
         from_attributes = True
 
+
+class IterationBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    description: Optional[str] = None
+    start_date: datetime
+    end_date: datetime
+    status: str = 'planning'
+    goal: Optional[str] = None
+
+
+class IterationCreate(IterationBase):
+    project_id: int
+
+
+class IterationUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    description: Optional[str] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    status: Optional[str] = None
+    goal: Optional[str] = None
+
+
+class IterationResponse(IterationBase):
+    id: int
+    project_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class CommentBase(BaseModel):
     content: str = Field(..., min_length=1)
 
