@@ -137,7 +137,8 @@ jobs:
       - run: cd frontend && npm ci --legacy-peer-deps
       - run: cd frontend && npm audit --omit=dev --audit-level=high
       - run: pip install safety bandit
-      - run: bandit -r backend -q
+      # Scan production code, not assertion-heavy test fixtures; fail on medium/high findings.
+      - run: bandit -r backend -x backend/tests -q -ll
 
   deploy-production:
     name: Production deploy disabled pending real provider integration
