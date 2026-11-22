@@ -21,6 +21,8 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
   },
   test: {
+    // Node's built-in test suite runs separately via node --test.
+    exclude: ['tests/**/*.test.mjs', '**/node_modules/**', '**/dist/**'],
     environment: 'jsdom',
     globals: true,
     setupFiles: './src/test/setup.ts',
