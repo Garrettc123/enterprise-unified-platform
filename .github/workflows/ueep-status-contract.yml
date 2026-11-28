@@ -1,0 +1,28 @@
+name: UEEP read-only status contract
+
+on:
+  pull_request:
+    paths:
+      - 'frontend/api/v1/orchestration/status.js'
+      - 'frontend/tests/ueep-status.test.mjs'
+      - '.github/workflows/ueep-status-contract.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/api/v1/orchestration/status.js'
+      - 'frontend/tests/ueep-status.test.mjs'
+      - '.github/workflows/ueep-status-contract.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Run no-network UEEP monitoring contract
+        run: node --test frontend/tests/ueep-status.test.mjs
